@@ -2,13 +2,8 @@
   import { onMount } from "svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
 
-  let activeTab: "categories" | "locations" | "specs" | "users" = "categories";
+  let activeTab: string = "categories";
 
-    // Specs
-  let specs: any[] = [];
-  let specForm: any = { name: "", categoryId: null };
-  let specEditMode = false;
-  let specModal = false;
   // Categories
   let categories: any[] = [];
   let catForm: any = { code: "", name: "", description: "" };
@@ -21,6 +16,12 @@
   let locEditMode = false;
   let locModal = false;
 
+  // Specs
+  let specs: any[] = [];
+  let specForm: any = { name: "", categoryId: null };
+  let specEditMode = false;
+  let specModal = false;
+
   // Users
   let users: any[] = [];
   let userForm: any = { username: "", password: "", displayName: "", role: "OPERATOR", active: true };
@@ -31,7 +32,7 @@
   onMount(() => { loadAll(); });
 
   async function loadAll() {
-    await Promise.all([loadCategories(), loadLocations(), loadUsers()]);
+    await Promise.all([loadCategories(), loadLocations(), loadSpecs(), loadUsers()]);
   }
 
   async function loadCategories() {
@@ -44,6 +45,11 @@
     if (res.ok) locations = await res.json();
   }
 
+  async function loadSpecs() {
+    const res = await fetch("/api/specs");
+    if (res.ok) specs = await res.json();
+  }
+
   async function loadUsers() {
     const res = await fetch("/api/users");
     if (res.ok) users = await res.json();
@@ -54,16 +60,14 @@
   function openCatEdit(c: any) { catForm = { ...c }; catEditMode = true; catModal = true; }
 
   async function saveCat() {
-    const url = "/api/categories";
     const method = catEditMode ? "PUT" : "POST";
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(catForm) });
-    const data = await res.json();
-    if (data.success) { catModal = false; loadCategories(); }
+    await fetch("/api/categories", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(catForm) });
+    catModal = false; loadCategories();
   }
 
   async function deleteCat(id: number) {
     if (!confirm("确定删除？")) return;
-    await fetch(`/api/categories?id=${id}`, { method: "DELETE" });
+    await fetch("/api/categories?id=" + id, { method: "DELETE" });
     loadCategories();
   }
 
@@ -73,23 +77,17 @@
 
   async function saveLoc() {
     const method = locEditMode ? "PUT" : "POST";
-    const res = await fetch("/api/locations", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(locForm) });
-    const data = await res.json();
-    if (data.success) { locModal = false; loadLocations(); }
+    await fetch("/api/locations", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(locForm) });
+    locModal = false; loadLocations();
   }
 
   async function deleteLoc(id: number) {
     if (!confirm("确定删除？")) return;
-    await fetch(`/api/locations?id=${id}`, { method: "DELETE" });
+    await fetch("/api/locations?id=" + id, { method: "DELETE" });
     loadLocations();
   }
 
-    // Spec CRUD
-  async function loadSpecs() {
-    const res = await fetch("/api/specs");
-    if (res.ok) specs = await res.json();
-  }
-
+  // Spec CRUD
   function openSpecAdd() { specForm = { name: "", categoryId: null }; specEditMode = false; specModal = true; }
   function openSpecEdit(s: any) { specForm = { ...s }; specEditMode = true; specModal = true; }
 
@@ -101,9 +99,10 @@
 
   async function deleteSpec(id: number) {
     if (!confirm("确定删除？")) return;
-    await fetch(`/api/specs?id=${id}`, { method: "DELETE" });
+    await fetch("/api/specs?id=" + id, { method: "DELETE" });
     loadSpecs();
   }
+
   // User CRUD
   function openUserAdd() { userForm = { username: "", password: "", displayName: "", role: "OPERATOR", active: true }; userEditMode = false; userModal = true; userError = ""; }
   function openUserEdit(u: any) { userForm = { ...u, password: "" }; userEditMode = true; userModal = true; userError = ""; }
@@ -121,7 +120,7 @@
 
   async function deleteUser(id: number) {
     if (!confirm("确定删除此用户？")) return;
-    await fetch(`/api/users?id=${id}`, { method: "DELETE" });
+    await fetch("/api/users?id=" + id, { method: "DELETE" });
     loadUsers();
   }
 </script>
@@ -130,12 +129,10 @@
 
 <!-- Tabs -->
 <div class="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
-  <button class="px-4 py-2 text-sm rounded-md {activeTab === "specs" ? "bg-white shadow-sm font-medium" : "text-gray-600 hover:text-gray-900"}" on:click={() => activeTab = "specs"}>规格型号</button>
-      <button class="px-4 py-2 text-sm rounded-md {activeTab === 'categories' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "categories"}>分类管理</button>
-  <button class="px-4 py-2 text-sm rounded-md {activeTab === "specs" ? "bg-white shadow-sm font-medium" : "text-gray-600 hover:text-gray-900"}" on:click={() => activeTab = "specs"}>规格型号</button>
-      <button class="px-4 py-2 text-sm rounded-md {activeTab === 'locations' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "locations"}>库位管理</button>
-  <button class="px-4 py-2 text-sm rounded-md {activeTab === "specs" ? "bg-white shadow-sm font-medium" : "text-gray-600 hover:text-gray-900"}" on:click={() => activeTab = "specs"}>规格型号</button>
-      <button class="px-4 py-2 text-sm rounded-md {activeTab === 'users' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "users"}>用户管理</button>
+  <button class="px-4 py-2 text-sm rounded-md {activeTab === 'categories' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "categories"}>分类管理</button>
+  <button class="px-4 py-2 text-sm rounded-md {activeTab === 'locations' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "locations"}>库位管理</button>
+  <button class="px-4 py-2 text-sm rounded-md {activeTab === 'specs' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "specs"}>规格型号</button>
+  <button class="px-4 py-2 text-sm rounded-md {activeTab === 'users' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "users"}>用户管理</button>
 </div>
 
 <!-- Categories Tab -->
@@ -161,7 +158,7 @@
             <tr>
               <td class="table-cell font-mono font-bold">{cat.code}</td>
               <td class="table-cell">{cat.name}</td>
-              <td class="table-cell text-gray-500">{cat.description || "—"}</td>
+              <td class="table-cell text-gray-500">{cat.description || "-"}</td>
               <td class="table-cell">{cat.counter}</td>
               <td class="table-cell">
                 <button class="text-blue-600 hover:text-blue-800 mr-2" on:click={() => openCatEdit(cat)}>编辑</button>
@@ -197,10 +194,43 @@
             <tr>
               <td class="table-cell font-mono">{loc.code}</td>
               <td class="table-cell">{loc.name}</td>
-              <td class="table-cell text-gray-500">{loc.description || "—"}</td>
+              <td class="table-cell text-gray-500">{loc.description || "-"}</td>
               <td class="table-cell">
                 <button class="text-blue-600 hover:text-blue-800 mr-2" on:click={() => openLocEdit(loc)}>编辑</button>
                 <button class="text-red-600 hover:text-red-800" on:click={() => deleteLoc(loc.id)}>删除</button>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{/if}
+
+<!-- Specs Tab -->
+{#if activeTab === "specs"}
+  <div class="card">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold">规格型号</h3>
+      <button class="btn-primary btn-sm" on:click={openSpecAdd}>+ 新增规格</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="table-header">型号名称</th>
+            <th class="table-header">所属分类</th>
+            <th class="table-header">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          {#each specs as s}
+            <tr>
+              <td class="table-cell">{s.name}</td>
+              <td class="table-cell">{s.category?.name || "通用"}</td>
+              <td class="table-cell">
+                <button class="text-blue-600 hover:text-blue-800 mr-2" on:click={() => openSpecEdit(s)}>编辑</button>
+                <button class="text-red-600 hover:text-red-800" on:click={() => deleteSpec(s.id)}>删除</button>
               </td>
             </tr>
           {/each}
@@ -260,86 +290,32 @@
 <!-- Category Modal -->
 <Modal title={catEditMode ? "编辑分类" : "新增分类"} bind:show={catModal} confirmText="保存" on:confirm={saveCat} on:close={() => catModal = false}>
   <div class="space-y-3">
-    <div>
-      <label class="label">编码前缀 <span class="text-red-500">*</span></label>
-      <input class="input" bind:value={catForm.code} placeholder="如 LAT, MIL" maxlength="10" />
-    </div>
-    <div>
-      <label class="label">名称 <span class="text-red-500">*</span></label>
-      <input class="input" bind:value={catForm.name} placeholder="如 车刀" />
-    </div>
-    <div>
-      <label class="label">描述</label>
-      <input class="input" bind:value={catForm.description} placeholder="可选描述" />
-    </div>
+    <div><label class="label">编码前缀 <span class="text-red-500">*</span></label><input class="input" bind:value={catForm.code} placeholder="如 LAT, MIL" maxlength="10" /></div>
+    <div><label class="label">名称 <span class="text-red-500">*</span></label><input class="input" bind:value={catForm.name} placeholder="如 车刀" /></div>
+    <div><label class="label">描述</label><input class="input" bind:value={catForm.description} placeholder="可选描述" /></div>
   </div>
 </Modal>
 
-<!-- Specs Tab -->
-{#if activeTab === "specs"}
-  <div class="card">
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-semibold">规格型号</h3>
-      <button class="btn-primary btn-sm" on:click={openSpecAdd}>+ 新增规格</button>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200 text-sm">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="table-header">型号名称</th>
-            <th class="table-header">所属分类</th>
-            <th class="table-header">操作</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-200">
-          {#each specs as s}
-            <tr>
-              <td class="table-cell">{s.name}</td>
-              <td class="table-cell">{s.category?.name || "通用"}</td>
-              <td class="table-cell">
-                <button class="text-blue-600 hover:text-blue-800 mr-2" on:click={() => openSpecEdit(s)}>编辑</button>
-                <button class="text-red-600 hover:text-red-800" on:click={() => deleteSpec(s.id)}>删除</button>
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+<!-- Location Modal -->
+<Modal title={locEditMode ? "编辑库位" : "新增库位"} bind:show={locModal} confirmText="保存" on:confirm={saveLoc} on:close={() => locModal = false}>
+  <div class="space-y-3">
+    <div><label class="label">编码 <span class="text-red-500">*</span></label><input class="input" bind:value={locForm.code} placeholder="如 A-01-01" /></div>
+    <div><label class="label">名称 <span class="text-red-500">*</span></label><input class="input" bind:value={locForm.name} placeholder="如 A货架第1层第1格" /></div>
+    <div><label class="label">描述</label><input class="input" bind:value={locForm.description} placeholder="可选描述" /></div>
   </div>
-{/if}
+</Modal>
 
 <!-- Spec Modal -->
 <Modal title={specEditMode ? "编辑规格型号" : "新增规格型号"} bind:show={specModal} confirmText="保存" on:confirm={saveSpec} on:close={() => { specModal = false; }}>
   <div class="space-y-3">
-    <div>
-      <label class="label">型号名称 <span class="text-red-500">*</span></label>
-      <input class="input" bind:value={specForm.name} placeholder="如 D20×100" />
-    </div>
-    <div>
-      <label class="label">所属分类</label>
+    <div><label class="label">型号名称 <span class="text-red-500">*</span></label><input class="input" bind:value={specForm.name} placeholder="如 D20x100" /></div>
+    <div><label class="label">所属分类</label>
       <select class="input" bind:value={specForm.categoryId}>
         <option value={null}>通用（不限制分类）</option>
         {#each categories as cat}
           <option value={cat.id}>{cat.name} ({cat.code})</option>
         {/each}
       </select>
-    </div>
-  </div>
-</Modal>
-<!-- Location Modal -->
-<Modal title={locEditMode ? "编辑库位" : "新增库位"} bind:show={locModal} confirmText="保存" on:confirm={saveLoc} on:close={() => locModal = false}>
-  <div class="space-y-3">
-    <div>
-      <label class="label">编码 <span class="text-red-500">*</span></label>
-      <input class="input" bind:value={locForm.code} placeholder="如 A-01-01" />
-    </div>
-    <div>
-      <label class="label">名称 <span class="text-red-500">*</span></label>
-      <input class="input" bind:value={locForm.name} placeholder="如 A货架第1层第1格" />
-    </div>
-    <div>
-      <label class="label">描述</label>
-      <input class="input" bind:value={locForm.description} placeholder="可选描述" />
     </div>
   </div>
 </Modal>
@@ -350,30 +326,15 @@
     <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-3">{userError}</div>
   {/if}
   <div class="space-y-3">
-    <div>
-      <label class="label">用户名 <span class="text-red-500">*</span></label>
-      <input class="input" bind:value={userForm.username} placeholder="登录用" disabled={userEditMode} />
-    </div>
-    <div>
-      <label class="label">密码 {#if !userEditMode}<span class="text-red-500">*</span>{/if}</label>
-      <input type="password" class="input" bind:value={userForm.password} placeholder={userEditMode ? "留空不改密码" : "至少6位"} />
-    </div>
-    <div>
-      <label class="label">显示名 <span class="text-red-500">*</span></label>
-      <input class="input" bind:value={userForm.displayName} />
-    </div>
-    <div>
-      <label class="label">角色</label>
+    <div><label class="label">用户名 <span class="text-red-500">*</span></label><input class="input" bind:value={userForm.username} placeholder="登录用" disabled={userEditMode} /></div>
+    <div><label class="label">密码 {#if !userEditMode}<span class="text-red-500">*</span>{/if}</label><input type="password" class="input" bind:value={userForm.password} placeholder={userEditMode ? "留空不改密码" : "至少6位"} /></div>
+    <div><label class="label">显示名 <span class="text-red-500">*</span></label><input class="input" bind:value={userForm.displayName} /></div>
+    <div><label class="label">角色</label>
       <select class="input" bind:value={userForm.role}>
         <option value="OPERATOR">操作员</option>
         <option value="ADMIN">管理员</option>
       </select>
     </div>
-    <div>
-      <label class="flex items-center gap-2">
-        <input type="checkbox" bind:checked={userForm.active} />
-        <span class="text-sm">启用</span>
-      </label>
-    </div>
+    <div><label class="flex items-center gap-2"><input type="checkbox" bind:checked={userForm.active} /><span class="text-sm">启用</span></label></div>
   </div>
 </Modal>
