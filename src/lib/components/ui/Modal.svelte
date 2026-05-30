@@ -35,7 +35,7 @@
           <Button variant="secondary" on:click={handleClose}>{cancelText}</Button>
         {/if}
         {#if showConfirm}
-          <Button {variant} {disabled: loading} on:click={handleConfirm}>
+          <Button variant={variant} disabled={loading} on:click={handleConfirm}>
             {loading ? "处理中..." : confirmText}
           </Button>
         {/if}
