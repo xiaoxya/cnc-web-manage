@@ -56,7 +56,7 @@
         </div>
       </div>
     </div>
-    <div class="card">
+      <div class="card">
       <div class="flex items-center gap-4">
         <div class="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center text-2xl">🔨</div>
         <div>
@@ -64,7 +64,7 @@
           <p class="text-3xl font-bold text-red-600">{stats.maintenanceCount}</p>
         </div>
       </div>
-
+    </div>
     <div class="card">
       <div class="flex items-center gap-4">
         <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-2xl">🗑️</div>
@@ -73,7 +73,7 @@
           <p class="text-3xl font-bold text-gray-600">{stats.scrappedToolCount}</p>
         </div>
       </div>
-    </div>    </div>
+    </div>
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
