@@ -107,7 +107,7 @@
             {#if !editing}
               <button class="btn-secondary btn-sm" on:click={() => editing = true}>编辑</button>
               {#if userRole === "ADMIN"}
-                <button class="btn-danger btn-sm" on:click={() => showDeleteModal = true}>删除</button>
+                <button class="btn-danger btn-sm" on:click={() => showDeleteModal = true}>报废</button>
               {/if}
             {/if}
           </div>
@@ -252,7 +252,7 @@
   </div>
 
   <!-- Delete modal -->
-  <Modal title="确认删除" bind:show={showDeleteModal} confirmText="确认删除" cancelText="取消" variant="danger" {deleteLoading} on:confirm={deleteTool} on:close={() => showDeleteModal = false}>
-    <p>确定要将刀具 <strong>{tool.toolCode} - {tool.name}</strong> 标记为已报废吗？</p>
+  <Modal title="确认报废" bind:show={showDeleteModal} confirmText="确认报废" cancelText="取消" variant="danger" {deleteLoading} on:confirm={deleteTool} on:close={() => showDeleteModal = false}>
+    <p>确定要将刀具 <strong>{tool.toolCode} - {tool.name}</strong> 标记为已报废？？</p>
   </Modal>
 {/if}

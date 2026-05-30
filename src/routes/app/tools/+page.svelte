@@ -3,6 +3,7 @@
   import ScanInput from "$lib/components/ScanInput.svelte";
   import Pagination from "$lib/components/ui/Pagination.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
+  import Modal from "$lib/components/ui/Modal.svelte";
 
   let tools: any[] = [];
   let total = 0;
@@ -16,6 +17,10 @@
   let locations: any[] = [];
   let loading = true;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let showScrapModal = false;
+  let scrapTarget: any = null;
+  let scrapLoading = false;
+  let scrapError = "";
 
   const statusOptions = [
     { value: "", label: "全部" },
@@ -78,6 +83,20 @@
   }
 
   function applyFilter() { page = 1; loadTools(); }
+
+  async function scrapTool() {
+    if (!scrapTarget) return;
+    scrapLoading = true; scrapError = "";
+    try {
+      const res = await fetch(`/api/tools/${scrapTarget.id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        showScrapModal = false; scrapTarget = null;
+        loadTools();
+      } else { scrapError = data.message || "操作失败"; }
+    } catch { scrapError = "网络错误"; }
+    scrapLoading = false;
+  }
 
   const statusMap: Record<string, string> = {
     IN_STOCK: "在库", IN_USE: "使用中", MAINTENANCE: "维修中", SCRAPPED: "已报废"
@@ -175,6 +194,9 @@
               </td>
               <td class="table-cell">
                 <a href="/app/tools/{tool.id}" class="text-blue-600 hover:text-blue-800 text-sm">详情</a>
+                {#if tool.status !== "SCRAPPED"}
+                  <button class="text-red-600 hover:text-red-800 text-sm ml-2" on:click={() => { scrapTarget = tool; showScrapModal = true; }}>报废</button>
+                {/if}
               </td>
             </tr>
           {/each}
@@ -183,4 +205,16 @@
     </div>
     <Pagination {page} {pageSize} {total} on:pageChange={onPageChange} />
   {/if}
+
+<!-- Scrap modal -->
+<Modal title="刀具报废" bind:show={showScrapModal} confirmText="确认报废" variant="danger" loading={scrapLoading} on:confirm={scrapTool} on:close={() => { showScrapModal = false; scrapTarget = null; scrapError = ""; }}>
+  {#if scrapError}
+    <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-3">{scrapError}</div>
+  {/if}
+  {#if scrapTarget}
+    <p>确定将以下刀具标记为报废？</p>
+    <p class="mt-2 font-semibold">{scrapTarget.toolCode} - {scrapTarget.name}</p>
+    <p class="text-sm text-gray-500 mt-1">报废后该刀具将不再出现在列表中</p>
+  {/if}
+</Modal>
 </div>

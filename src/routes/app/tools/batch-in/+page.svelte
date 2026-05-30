@@ -138,7 +138,7 @@
         const input = document.createElement("input");
         input.type = "file";
         input.accept = ".xlsx,.xls";
-        input.onchange = async (e: any) => {
+        input.onchange = async (e) => {
           const file = e.target.files[0];
           if (!file) return;
           const formData = new FormData();
@@ -147,7 +147,7 @@
           const data = await res.json();
           if (data.success) {
             success = `导入成功，共 ${data.items?.length || 0} 条，请确认后提交`;
-            items = data.items.map((t: any) => ({ toolId: t.id, toolCode: t.toolCode, name: t.name, quantity: 1, notes: "", _found: true }));
+            items = data.items.map((t) => ({ toolId: t.id, toolCode: t.toolCode, name: t.name, quantity: Math.max(1, t.quantity || 1), notes: t.notes || "", _found: true }));
           } else { error = data.message || "导入失败"; }
         };
         input.click();
