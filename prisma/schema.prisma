@@ -1,0 +1,179 @@
+﻿generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+}
+
+enum ToolStatus {
+  IN_STOCK
+  IN_USE
+  MAINTENANCE
+  SCRAPPED
+}
+
+enum TransactionType {
+  IN
+  OUT
+}
+
+enum MaintenanceStatus {
+  IN_MAINTENANCE
+  COMPLETED
+}
+
+enum StocktakingStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  username     String    @unique @db.VarChar(50)
+  passwordHash String    @db.VarChar(255)
+  role         UserRole  @default(OPERATOR)
+  displayName  String    @db.VarChar(100)
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  transactions       ToolTransaction[]
+  maintenanceReports MaintenanceRecord[]  @relation("Reporter")
+  stocktakings       Stocktaking[]
+
+  @@map("users")
+}
+
+model ToolCategory {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(10)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  counter     Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tools Tool[]
+
+  @@map("tool_categories")
+}
+
+model Location {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tools Tool[]
+
+  @@map("locations")
+}
+
+model Tool {
+  id            Int         @id @default(autoincrement())
+  toolCode      String      @unique @db.VarChar(50)
+  name          String      @db.VarChar(200)
+  specification String?     @db.VarChar(255)
+  material      String?     @db.VarChar(100)
+  brand         String?     @db.VarChar(100)
+  categoryId    Int
+  locationId    Int?
+  quantity      Int         @default(0)
+  minQuantity   Int         @default(1)
+  unit          String      @default("把") @db.VarChar(20)
+  price         Decimal?    @db.Decimal(10, 2)
+  status        ToolStatus  @default(IN_STOCK)
+  notes         String?     @db.Text
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  category      ToolCategory       @relation(fields: [categoryId], references: [id])
+  location      Location?          @relation(fields: [locationId], references: [id])
+  transactions  ToolTransaction[]
+  maintenance   MaintenanceRecord[]
+  stocktakingItems StocktakingItem[]
+
+  @@index([categoryId])
+  @@index([locationId])
+  @@index([status])
+  @@index([toolCode])
+  @@map("tools")
+}
+
+model ToolTransaction {
+  id          Int             @id @default(autoincrement())
+  toolId      Int
+  type        TransactionType
+  quantity    Int
+  operatorId  Int
+  referenceNo String?         @db.VarChar(100)
+  notes       String?         @db.Text
+  createdAt   DateTime        @default(now())
+
+  tool     Tool @relation(fields: [toolId], references: [id])
+  operator User @relation(fields: [operatorId], references: [id])
+
+  @@index([toolId])
+  @@index([createdAt])
+  @@map("tool_transactions")
+}
+
+model MaintenanceRecord {
+  id          Int                @id @default(autoincrement())
+  toolId      Int
+  status      MaintenanceStatus  @default(IN_MAINTENANCE)
+  description String             @db.Text
+  cost        Decimal?           @db.Decimal(10, 2)
+  reporterId  Int
+  completedAt DateTime?
+  notes       String?            @db.Text
+  createdAt   DateTime           @default(now())
+
+  tool     Tool @relation(fields: [toolId], references: [id])
+  reporter User @relation("Reporter", fields: [reporterId], references: [id])
+
+  @@index([toolId])
+  @@index([status])
+  @@map("maintenance_records")
+}
+
+model Stocktaking {
+  id            Int               @id @default(autoincrement())
+  stocktakingNo String            @unique @db.VarChar(50)
+  status        StocktakingStatus @default(IN_PROGRESS)
+  operatorId    Int
+  completedAt   DateTime?
+  notes         String?           @db.Text
+  createdAt     DateTime          @default(now())
+
+  operator User              @relation(fields: [operatorId], references: [id])
+  items    StocktakingItem[]
+
+  @@index([status])
+  @@map("stocktakings")
+}
+
+model StocktakingItem {
+  id               Int    @id @default(autoincrement())
+  stocktakingId    Int
+  toolId           Int
+  expectedQuantity Int
+  actualQuantity   Int
+  difference       Int
+  notes            String? @db.Text
+
+  stocktaking Stocktaking @relation(fields: [stocktakingId], references: [id])
+  tool        Tool        @relation(fields: [toolId], references: [id])
+
+  @@unique([stocktakingId, toolId])
+  @@map("stocktaking_items")
+}
