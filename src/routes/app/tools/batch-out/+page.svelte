@@ -129,6 +129,7 @@
         };
         input.click();
       }}>📄 导入 Excel</button>
+      <a href="/api/tools/template?type=OUT" class="btn-secondary btn-sm" download>📥 下载模板</a>
       <div class="flex-1"></div>
       <button class="btn-primary" on:click={submitBatch} disabled={loading}>
         {loading ? "处理中..." : "确认出库"}

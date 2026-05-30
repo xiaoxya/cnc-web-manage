@@ -17,7 +17,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const ExcelJS = await import("exceljs");
-    const workbook = new ExcelJS.Workbook();
+    const workbook = new ExcelJS.default.Workbook();
     await workbook.xlsx.load(buffer);
     const worksheet = workbook.worksheets[0];
 

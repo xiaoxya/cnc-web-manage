@@ -6,6 +6,7 @@
     totalTools: 0,
     lowStockCount: 0,
     maintenanceCount: 0,
+      scrappedToolCount: 0,
     recentTransactions: [] as any[],
     recentMaintenance: [] as any[],
   };
@@ -36,7 +37,7 @@
   <div class="text-center py-12 text-gray-400">加载中...</div>
 {:else}
   <!-- Stats cards -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     <div class="card">
       <div class="flex items-center gap-4">
         <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-2xl">🔧</div>
@@ -63,7 +64,16 @@
           <p class="text-3xl font-bold text-red-600">{stats.maintenanceCount}</p>
         </div>
       </div>
-    </div>
+
+    <div class="card">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-2xl">🗑️</div>
+        <div>
+          <p class="text-sm text-gray-500">已报废</p>
+          <p class="text-3xl font-bold text-gray-600">{stats.scrappedToolCount}</p>
+        </div>
+      </div>
+    </div>    </div>
   </div>
 
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">

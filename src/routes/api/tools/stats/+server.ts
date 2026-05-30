@@ -5,15 +5,16 @@ import type { RequestHandler } from "./$types";
 
 export const GET: RequestHandler = async ({ request }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return json({ totalTools: 0, lowStockCount: 0, maintenanceCount: 0, recentTransactions: [], recentMaintenance: [] }, { status: 401 });
+  if (!token) return json({ totalTools: 0, lowStockCount: 0, maintenanceCount: 0, scrappedToolCount: 0, recentTransactions: [], recentMaintenance: [] }, { status: 401 });
 
   try {
     verifyToken(token);
 
-    const [totalTools, lowStockCount, maintenanceCount, recentTransactions, recentMaintenance] = await Promise.all([
+    const [totalTools, lowStockCount, maintenanceCount, scrappedToolCount, recentTransactions, recentMaintenance] = await Promise.all([
       prisma.tool.count({ where: { status: { not: "SCRAPPED" } } }),
       prisma.tool.count({ where: { quantity: { lte: prisma.tool.fields.minQuantity }, status: { not: "SCRAPPED" } } }),
       prisma.tool.count({ where: { status: "MAINTENANCE" } }),
+      prisma.tool.count({ where: { status: "SCRAPPED" } }),
       prisma.toolTransaction.findMany({
         take: 10,
         orderBy: { createdAt: "desc" },
@@ -26,8 +27,8 @@ export const GET: RequestHandler = async ({ request }) => {
       }),
     ]);
 
-    return json({ totalTools, lowStockCount, maintenanceCount, recentTransactions, recentMaintenance });
+    return json({ totalTools, lowStockCount, maintenanceCount, scrappedToolCount, recentTransactions, recentMaintenance });
   } catch {
-    return json({ totalTools: 0, lowStockCount: 0, maintenanceCount: 0, recentTransactions: [], recentMaintenance: [] }, { status: 401 });
+    return json({ totalTools: 0, lowStockCount: 0, maintenanceCount: 0, scrappedToolCount: 0, recentTransactions: [], recentMaintenance: [] }, { status: 401 });
   }
 };
