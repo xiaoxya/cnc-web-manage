@@ -18,7 +18,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
     const locationId = url.searchParams.get("locationId");
     const status = url.searchParams.get("status");
 
-    const where: any = { status: { not: "SCRAPPED" } };
+    const where: any = {};
 
     if (search) {
       where.OR = [

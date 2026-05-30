@@ -27,6 +27,7 @@
     { value: "IN_STOCK", label: "在库" },
     { value: "IN_USE", label: "使用中" },
     { value: "MAINTENANCE", label: "维修中" },
+    { value: "SCRAPPED", label: "已报废" },
   ];
 
   onMount(async () => {

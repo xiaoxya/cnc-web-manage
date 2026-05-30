@@ -2,8 +2,13 @@
   import { onMount } from "svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
 
-  let activeTab: "categories" | "locations" | "users" = "categories";
+  let activeTab: "categories" | "locations" | "specs" | "users" = "categories";
 
+    // Specs
+  let specs: any[] = [];
+  let specForm: any = { name: "", categoryId: null };
+  let specEditMode = false;
+  let specModal = false;
   // Categories
   let categories: any[] = [];
   let catForm: any = { code: "", name: "", description: "" };
@@ -79,6 +84,26 @@
     loadLocations();
   }
 
+    // Spec CRUD
+  async function loadSpecs() {
+    const res = await fetch("/api/specs");
+    if (res.ok) specs = await res.json();
+  }
+
+  function openSpecAdd() { specForm = { name: "", categoryId: null }; specEditMode = false; specModal = true; }
+  function openSpecEdit(s: any) { specForm = { ...s }; specEditMode = true; specModal = true; }
+
+  async function saveSpec() {
+    const method = specEditMode ? "PUT" : "POST";
+    await fetch("/api/specs", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(specForm) });
+    specModal = false; loadSpecs();
+  }
+
+  async function deleteSpec(id: number) {
+    if (!confirm("确定删除？")) return;
+    await fetch(`/api/specs?id=${id}`, { method: "DELETE" });
+    loadSpecs();
+  }
   // User CRUD
   function openUserAdd() { userForm = { username: "", password: "", displayName: "", role: "OPERATOR", active: true }; userEditMode = false; userModal = true; userError = ""; }
   function openUserEdit(u: any) { userForm = { ...u, password: "" }; userEditMode = true; userModal = true; userError = ""; }
@@ -105,9 +130,12 @@
 
 <!-- Tabs -->
 <div class="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
-  <button class="px-4 py-2 text-sm rounded-md {activeTab === 'categories' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "categories"}>分类管理</button>
-  <button class="px-4 py-2 text-sm rounded-md {activeTab === 'locations' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "locations"}>库位管理</button>
-  <button class="px-4 py-2 text-sm rounded-md {activeTab === 'users' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "users"}>用户管理</button>
+  <button class="px-4 py-2 text-sm rounded-md {activeTab === "specs" ? "bg-white shadow-sm font-medium" : "text-gray-600 hover:text-gray-900"}" on:click={() => activeTab = "specs"}>规格型号</button>
+      <button class="px-4 py-2 text-sm rounded-md {activeTab === 'categories' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "categories"}>分类管理</button>
+  <button class="px-4 py-2 text-sm rounded-md {activeTab === "specs" ? "bg-white shadow-sm font-medium" : "text-gray-600 hover:text-gray-900"}" on:click={() => activeTab = "specs"}>规格型号</button>
+      <button class="px-4 py-2 text-sm rounded-md {activeTab === 'locations' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "locations"}>库位管理</button>
+  <button class="px-4 py-2 text-sm rounded-md {activeTab === "specs" ? "bg-white shadow-sm font-medium" : "text-gray-600 hover:text-gray-900"}" on:click={() => activeTab = "specs"}>规格型号</button>
+      <button class="px-4 py-2 text-sm rounded-md {activeTab === 'users' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "users"}>用户管理</button>
 </div>
 
 <!-- Categories Tab -->
@@ -247,6 +275,57 @@
   </div>
 </Modal>
 
+<!-- Specs Tab -->
+{#if activeTab === "specs"}
+  <div class="card">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold">规格型号</h3>
+      <button class="btn-primary btn-sm" on:click={openSpecAdd}>+ 新增规格</button>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200 text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="table-header">型号名称</th>
+            <th class="table-header">所属分类</th>
+            <th class="table-header">操作</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-200">
+          {#each specs as s}
+            <tr>
+              <td class="table-cell">{s.name}</td>
+              <td class="table-cell">{s.category?.name || "通用"}</td>
+              <td class="table-cell">
+                <button class="text-blue-600 hover:text-blue-800 mr-2" on:click={() => openSpecEdit(s)}>编辑</button>
+                <button class="text-red-600 hover:text-red-800" on:click={() => deleteSpec(s.id)}>删除</button>
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{/if}
+
+<!-- Spec Modal -->
+<Modal title={specEditMode ? "编辑规格型号" : "新增规格型号"} bind:show={specModal} confirmText="保存" on:confirm={saveSpec} on:close={() => { specModal = false; }}>
+  <div class="space-y-3">
+    <div>
+      <label class="label">型号名称 <span class="text-red-500">*</span></label>
+      <input class="input" bind:value={specForm.name} placeholder="如 D20×100" />
+    </div>
+    <div>
+      <label class="label">所属分类</label>
+      <select class="input" bind:value={specForm.categoryId}>
+        <option value={null}>通用（不限制分类）</option>
+        {#each categories as cat}
+          <option value={cat.id}>{cat.name} ({cat.code})</option>
+        {/each}
+      </select>
+    </div>
+  </div>
+</Modal>
 <!-- Location Modal -->
 <Modal title={locEditMode ? "编辑库位" : "新增库位"} bind:show={locModal} confirmText="保存" on:confirm={saveLoc} on:close={() => locModal = false}>
   <div class="space-y-3">

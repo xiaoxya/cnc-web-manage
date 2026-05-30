@@ -6,11 +6,12 @@
   let error = "";
   let categories: any[] = [];
   let locations: any[] = [];
+  let specs: any[] = [];
   let generatedCode = "选择分类后自动生成";
 
   let form = {
     name: "", specification: "", material: "", brand: "",
-    categoryId: 0, locationId: null as number | null,
+    categoryId: 0, specId: null as number | null, locationId: null as number | null,
     quantity: 0, minQuantity: 1, unit: "把",
     price: null as number | null, notes: "",
   };
@@ -71,7 +72,7 @@
 
         <div>
           <label class="label">分类 <span class="text-red-500">*</span></label>
-          <select class="input" bind:value={form.categoryId}>
+          <select class="input" bind:value={form.categoryId} on:change={loadSpecs}>
             <option value={0}>请选择分类</option>
             {#each categories as cat}
               <option value={cat.id}>{cat.name} ({cat.code})</option>

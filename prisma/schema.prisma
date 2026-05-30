@@ -34,6 +34,20 @@ enum StocktakingStatus {
   COMPLETED
 }
 
+model Spec {
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(255)
+  categoryId Int?
+  category   ToolCategory? @relation(fields: [categoryId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tools Tool[]
+
+  @@index([categoryId])
+  @@map("specs")
+}
+
 model User {
   id           Int       @id @default(autoincrement())
   username     String    @unique @db.VarChar(50)
@@ -61,6 +75,7 @@ model ToolCategory {
   updatedAt   DateTime @updatedAt
 
   tools Tool[]
+  specs Spec[]
 
   @@map("tool_categories")
 }
@@ -83,6 +98,7 @@ model Tool {
   toolCode      String      @unique @db.VarChar(50)
   name          String      @db.VarChar(200)
   specification String?     @db.VarChar(255)
+  specId        Int?
   material      String?     @db.VarChar(100)
   brand         String?     @db.VarChar(100)
   categoryId    Int
@@ -97,6 +113,7 @@ model Tool {
   updatedAt     DateTime    @updatedAt
 
   category      ToolCategory       @relation(fields: [categoryId], references: [id])
+  spec          Spec?              @relation(fields: [specId], references: [id])
   location      Location?          @relation(fields: [locationId], references: [id])
   transactions  ToolTransaction[]
   maintenance   MaintenanceRecord[]
@@ -104,6 +121,7 @@ model Tool {
 
   @@index([categoryId])
   @@index([locationId])
+  @@index([specId])
   @@index([status])
   @@index([toolCode])
   @@map("tools")
