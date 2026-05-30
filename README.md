@@ -1,4 +1,4 @@
-﻿# CNC 刀具管理系统
+# CNC 刀具管理系统
 
 基于 **SvelteKit** + **Prisma** + **MariaDB** 的全栈 CNC 刀具全生命周期管理系统。
 

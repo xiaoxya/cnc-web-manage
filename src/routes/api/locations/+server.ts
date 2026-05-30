@@ -1,4 +1,4 @@
-﻿import { getTokenFromCookies, verifyToken } from "$lib/server/auth";
+import { getTokenFromCookies, verifyToken } from "$lib/server/auth";
 import { prisma } from "$lib/server/db";
 import { isAdmin } from "$lib/server/permissions";
 import { json } from "@sveltejs/kit";

@@ -1,4 +1,4 @@
-﻿/// <reference types="@sveltejs/kit" />
+/// <reference types="@sveltejs/kit" />
 
 declare namespace App {
   interface Locals {

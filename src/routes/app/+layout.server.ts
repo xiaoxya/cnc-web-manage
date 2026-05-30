@@ -1,4 +1,4 @@
-﻿import { getTokenFromCookies, verifyToken } from "$lib/server/auth";
+import { getTokenFromCookies, verifyToken } from "$lib/server/auth";
 import { prisma } from "$lib/server/db";
 import { redirect } from "@sveltejs/kit";
 import type { LayoutServerLoad } from "./$types";

@@ -1,6 +1,10 @@
-﻿node_modules/
+node_modules/
 .env
 .svelte-kit/
 build/
 *.db
 .DS_Store
+
+# Generated files
+prisma/migrations/
+dev-server.log

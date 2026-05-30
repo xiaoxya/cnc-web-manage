@@ -1,4 +1,4 @@
-﻿export function formatDate(date: Date | string): string {
+export function formatDate(date: Date | string): string {
   const d = new Date(date);
   return d.toLocaleDateString("zh-CN", {
     year: "numeric",

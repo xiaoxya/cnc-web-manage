@@ -1,4 +1,4 @@
-﻿import { prisma } from "$lib/server/db";
+import { prisma } from "$lib/server/db";
 
 export async function generateToolCode(categoryId: number): Promise<string> {
   const result = await prisma.$transaction(async (tx) => {

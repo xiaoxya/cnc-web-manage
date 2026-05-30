@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { enhance } from "$app/forms";
   import { applyAction, deserialize } from "$app/forms";
 

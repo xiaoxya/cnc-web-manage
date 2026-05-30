@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { onMount } from "svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
 

@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import Button from "./Button.svelte";
   import { createEventDispatcher } from "svelte";
 

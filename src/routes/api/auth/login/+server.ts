@@ -1,4 +1,4 @@
-﻿import { prisma } from "$lib/server/db";
+import { prisma } from "$lib/server/db";
 import { verifyPassword, signToken } from "$lib/server/auth";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";

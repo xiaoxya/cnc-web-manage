@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   export let message: string = "暂无数据";
   export let icon: string = "📦";
 </script>

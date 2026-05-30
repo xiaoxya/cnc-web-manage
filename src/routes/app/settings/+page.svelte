@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { onMount } from "svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
 

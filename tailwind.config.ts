@@ -1,4 +1,4 @@
-﻿import { join } from "path";
+import { join } from "path";
 import type { Config } from "tailwindcss";
 
 export default {
