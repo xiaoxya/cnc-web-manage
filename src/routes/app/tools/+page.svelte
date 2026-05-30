@@ -17,6 +17,7 @@
   let locations: any[] = [];
   let loading = true;
   let searchTimer: ReturnType<typeof setTimeout> | null = null;
+  let currentUserRole = "";
   let showScrapModal = false;
   let scrapTarget: any = null;
   let scrapLoading = false;
@@ -31,7 +32,7 @@
   ];
 
   onMount(async () => {
-    await Promise.all([loadTools(), loadOptions()]);
+    await Promise.all([loadTools(), loadOptions(), loadUser()]);
   });
 
   async function loadOptions() {
@@ -42,6 +43,16 @@
       ]);
       if (catRes.ok) categories = await catRes.json();
       if (locRes.ok) locations = await locRes.json();
+    } catch {}
+  }
+
+  async function loadUser() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.user) currentUserRole = data.user.role;
+      }
     } catch {}
   }
 
@@ -195,7 +206,7 @@
               </td>
               <td class="table-cell">
                 <a href="/app/tools/{tool.id}" class="text-blue-600 hover:text-blue-800 text-sm">详情</a>
-                {#if tool.status !== "SCRAPPED"}
+                {#if tool.status !== "SCRAPPED" && currentUserRole === "ADMIN"}
                   <button class="text-red-600 hover:text-red-800 text-sm ml-2" on:click={() => { scrapTarget = tool; showScrapModal = true; }}>报废</button>
                 {/if}
               </td>

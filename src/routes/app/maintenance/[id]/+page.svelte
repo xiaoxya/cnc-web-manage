@@ -7,13 +7,18 @@
   let record: any = null;
   let loading = true;
   let showCompleteModal = false;
-  let completeForm = { cost: null as number | null, notes: "" };
+  let completeForm = { cost: null as number | null, notes: "", repairVendor: "" };
+  let vendors: any[] = [];
   let completeLoading = false;
 
   $: id = $page.params.id;
 
   onMount(async () => {
-    const res = await fetch(`/api/maintenance/${id}`);
+    const [vendorsRes, res] = await Promise.all([
+      fetch("/api/repair-vendors"),
+      fetch(`/api/maintenance/${id}`)
+    ]);
+    if (vendorsRes.ok) vendors = await vendorsRes.json();
     if (res.ok) record = await res.json();
     loading = false;
   });
@@ -62,6 +67,9 @@
         {#if record.completedAt}
           <div class="flex justify-between"><span class="text-gray-500">完成时间</span><span>{fmt(record.completedAt)}</span></div>
         {/if}
+        {#if record.repairVendor}
+          <div class="flex justify-between"><span class="text-gray-500">维修厂家</span><span>{record.repairVendor}</span></div>
+        {/if}
         {#if record.cost}
           <div class="flex justify-between"><span class="text-gray-500">维修费用</span><span>¥{Number(record.cost).toFixed(2)}</span></div>
         {/if}
@@ -91,6 +99,16 @@
         <input type="number" class="input" bind:value={completeForm.cost} min="0" step="0.01" placeholder="0.00" />
       </div>
       <div>
+        <label class="label">维修厂家</label>
+        <select class="input" bind:value={completeForm.repairVendor}>
+          <option value="">请选择厂家</option>
+          {#each vendors as v}
+            <option value={v.name}>{v.name}</option>
+          {/each}
+        </select>
+        <input class="input mt-2" bind:value={completeForm.repairVendor} placeholder="或手动输入厂家名称" />
+      </div>
+    <div>
         <label class="label">备注</label>
         <textarea class="input" rows="3" bind:value={completeForm.notes} placeholder="维修结果说明"></textarea>
       </div>

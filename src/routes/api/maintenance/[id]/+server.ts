@@ -15,3 +15,36 @@ export const GET: RequestHandler = async ({ request, params }) => {
     return json(record);
   } catch { return json(null); }
 };
+
+export const PUT: RequestHandler = async ({ request, params }) => {
+  const token = getTokenFromCookies(request.headers.get("cookie"));
+  if (!token) return json({ success: false, message: "未登录" }, { status: 401 });
+  try {
+    const payload = verifyToken(token);
+    const id = parseInt(params.id);
+    const body = await request.json();
+
+    const record = await prisma.$transaction(async (tx) => {
+      const updated = await tx.maintenanceRecord.update({
+        where: { id },
+        data: {
+          status: "COMPLETED",
+          completedAt: new Date(),
+          cost: body.cost ? parseFloat(body.cost) : null,
+          notes: body.notes || null,
+          repairVendor: body.repairVendor || null,
+        },
+      });
+      await tx.tool.update({
+        where: { id: updated.toolId },
+        data: { status: "IN_STOCK" },
+      });
+      return updated;
+    });
+
+    return json({ success: true, record });
+  } catch (e) {
+    console.error(e);
+    return json({ success: false, message: "操作失败" }, { status: 500 });
+  }
+};

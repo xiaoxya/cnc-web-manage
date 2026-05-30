@@ -29,10 +29,16 @@
   let userModal = false;
   let userError = "";
 
+  // Repair Vendors
+  let vendors: any[] = [];
+  let vendorForm: any = { name: "" };
+  let vendorEditMode = false;
+  let vendorModal = false;
+
   onMount(() => { loadAll(); });
 
   async function loadAll() {
-    await Promise.all([loadCategories(), loadLocations(), loadSpecs(), loadUsers()]);
+    await Promise.all([loadCategories(), loadLocations(), loadSpecs(), loadUsers(), loadVendors()]);
   }
 
   async function loadCategories() {
@@ -48,6 +54,11 @@
   async function loadSpecs() {
     const res = await fetch("/api/specs");
     if (res.ok) specs = await res.json();
+  }
+
+  async function loadVendors() {
+    const res = await fetch("/api/repair-vendors");
+    if (res.ok) vendors = await res.json();
   }
 
   async function loadUsers() {
@@ -118,6 +129,24 @@
     else { userError = data.message || "操作失败"; }
   }
 
+  // Vendor CRUD
+  function openVendorAdd() { vendorForm = { name: "" }; vendorEditMode = false; vendorModal = true; }
+  function openVendorEdit(v: any) { vendorForm = { ...v }; vendorEditMode = true; vendorModal = true; }
+
+  async function saveVendor() {
+    const method = vendorEditMode ? "PUT" : "POST";
+    let url = "/api/repair-vendors";
+    if (vendorEditMode) url += "?id=" + vendorForm.id;
+    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(vendorForm) });
+    vendorModal = false; loadVendors();
+  }
+
+  async function deleteVendor(id: number) {
+    if (!confirm("确定删除此维修厂家？")) return;
+    await fetch("/api/repair-vendors?id=" + id, { method: "DELETE" });
+    loadVendors();
+  }
+
   async function deleteUser(id: number) {
     if (!confirm("确定删除此用户？")) return;
     await fetch("/api/users?id=" + id, { method: "DELETE" });
@@ -130,8 +159,9 @@
 <!-- Tabs -->
 <div class="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
   <button class="px-4 py-2 text-sm rounded-md {activeTab === 'categories' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "categories"}>分类管理</button>
+    <button class="px-4 py-2 text-sm rounded-md {activeTab === 'specs' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "specs"}>规格型号</button>
   <button class="px-4 py-2 text-sm rounded-md {activeTab === 'locations' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "locations"}>库位管理</button>
-  <button class="px-4 py-2 text-sm rounded-md {activeTab === 'specs' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "specs"}>规格型号</button>
+  <button class="px-4 py-2 text-sm rounded-md {activeTab === 'vendors' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "vendors"}>维修厂家</button>
   <button class="px-4 py-2 text-sm rounded-md {activeTab === 'users' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "users"}>用户管理</button>
 </div>
 
@@ -287,12 +317,57 @@
   </div>
 {/if}
 
+{#if activeTab === "vendors"}
+    <div class="card">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">维修厂家管理</h3>
+        <button class="btn-primary text-sm" on:click={openVendorAdd}>+ 新增厂家</button>
+      </div>
+      {#if vendors.length === 0}
+        <p class="text-gray-400 text-sm">暂无维修厂家</p>
+      {:else}
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="table-header">ID</th>
+                <th class="table-header">厂家名称</th>
+                <th class="table-header">创建时间</th>
+                <th class="table-header">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              {#each vendors as v}
+                <tr>
+                  <td class="table-cell text-gray-500">{v.id}</td>
+                  <td class="table-cell">{v.name}</td>
+                  <td class="table-cell text-gray-500">{new Date(v.createdAt).toLocaleDateString("zh-CN")}</td>
+                  <td class="table-cell">
+                    <button class="text-blue-600 hover:text-blue-800 mr-2" on:click={() => openVendorEdit(v)}>编辑</button>
+                    <button class="text-red-600 hover:text-red-800" on:click={() => deleteVendor(v.id)}>删除</button>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+    </div>
+  {/if}
+
 <!-- Category Modal -->
 <Modal title={catEditMode ? "编辑分类" : "新增分类"} bind:show={catModal} confirmText="保存" on:confirm={saveCat} on:close={() => catModal = false}>
   <div class="space-y-3">
     <div><label class="label">编码前缀 <span class="text-red-500">*</span></label><input class="input" bind:value={catForm.code} placeholder="如 LAT, MIL" maxlength="10" /></div>
     <div><label class="label">名称 <span class="text-red-500">*</span></label><input class="input" bind:value={catForm.name} placeholder="如 车刀" /></div>
     <div><label class="label">描述</label><input class="input" bind:value={catForm.description} placeholder="可选描述" /></div>
+  </div>
+</Modal>
+
+<!-- Vendor Modal -->
+<Modal title={vendorEditMode ? "编辑维修厂家" : "新增维修厂家"} bind:show={vendorModal} confirmText="保存" on:confirm={saveVendor} on:close={() => vendorModal = false}>
+  <div class="space-y-3">
+    <div><label class="label">厂家名称 <span class="text-red-500">*</span></label><input class="input" bind:value={vendorForm.name} placeholder="如：原厂维修" /></div>
   </div>
 </Modal>
 

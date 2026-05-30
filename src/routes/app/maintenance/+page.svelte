@@ -12,9 +12,12 @@
   // New maintenance modal
   let showNewModal = false;
   let scanCode = "";
+  let scanTimer: ReturnType<typeof setTimeout> | null = null;
   let scannedTool: any = null;
   let description = "";
   let notes = "";
+  let repairVendor = "";
+  let vendors: any[] = [];
   let newLoading = false;
   let newError = "";
 
@@ -24,7 +27,14 @@
     { value: "COMPLETED", label: "已完成" },
   ];
 
-  onMount(() => loadRecords());
+  onMount(() => { loadRecords(); loadVendors(); });
+
+  async function loadVendors() {
+    try {
+      const res = await fetch("/api/repair-vendors");
+      if (res.ok) vendors = await res.json();
+    } catch {}
+  }
 
   async function loadRecords() {
     loading = true;
@@ -39,6 +49,11 @@
   }
 
   function applyFilter() { loadRecords(); }
+
+  async function onScanInput(val: string) {
+    if (scanTimer) clearTimeout(scanTimer);
+    scanTimer = setTimeout(() => onScanForNew(val), 300);
+  }
 
   async function onScanForNew(val: string) {
     if (!val) return;
@@ -62,7 +77,7 @@
     const res = await fetch("/api/maintenance", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ toolId: scannedTool.id, description, notes }),
+      body: JSON.stringify({ toolId: scannedTool.id, description, notes, repairVendor }),
     });
     const data = await res.json();
     if (data.success) {
@@ -70,6 +85,7 @@
       scannedTool = null;
       description = "";
       notes = "";
+      repairVendor = "";
       scanCode = "";
       loadRecords();
     } else { newError = data.message || "报修失败"; }
@@ -153,13 +169,23 @@
   <div class="space-y-3">
     <div>
       <label class="label">扫描刀具编码</label>
-      <ScanInput bind:value={scanCode} placeholder="扫码或输入..." on:submit={(e) => onScanForNew(e.detail)} />
+      <ScanInput bind:value={scanCode} placeholder="扫码或输入..." on:submit={(e) => onScanForNew(e.detail)} on:input={(e) => onScanInput(e.detail)} />
     </div>
     {#if scannedTool}
       <div class="bg-blue-50 text-blue-700 text-sm px-3 py-2 rounded-lg">
         已找到：{scannedTool.toolCode} - {scannedTool.name}（库存：{scannedTool.quantity}）
       </div>
     {/if}
+    <div>
+      <label class="label">维修厂家</label>
+      <select class="input" bind:value={repairVendor}>
+        <option value="">请选择厂家</option>
+        {#each vendors as v}
+          <option value={v.name}>{v.name}</option>
+        {/each}
+      </select>
+      <input class="input mt-2" bind:value={repairVendor} placeholder="或手动输入厂家名称" />
+    </div>
     <div>
       <label class="label">故障描述 <span class="text-red-500">*</span></label>
       <textarea class="input" rows="3" bind:value={description} placeholder="请描述故障情况"></textarea>

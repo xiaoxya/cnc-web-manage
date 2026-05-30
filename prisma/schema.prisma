@@ -1,3 +1,12 @@
+
+model RepairVendor {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(200)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("repair_vendors")
+}
 generator client {
   provider = "prisma-client-js"
 }
@@ -151,6 +160,7 @@ model MaintenanceRecord {
   status      MaintenanceStatus  @default(IN_MAINTENANCE)
   description String             @db.Text
   cost        Decimal?           @db.Decimal(10, 2)
+  repairVendor String?           @db.VarChar(200)
   reporterId  Int
   completedAt DateTime?
   notes       String?            @db.Text
