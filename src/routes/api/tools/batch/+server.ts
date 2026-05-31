@@ -10,8 +10,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
   try {
     const payload = verifyToken(token);
+    if (payload.role !== "ADMIN") return json({ success: false, message: "权限不足" }, { status: 403 });
     const body = await request.json();
-    const { type, items, referenceNo } = body;
+    const { type, items, referenceNo, factoryId } = body;
 
     if (!["IN", "OUT"].includes(type)) {
       return json({ success: false, message: "无效的操作类型" }, { status: 400 });
@@ -45,6 +46,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             operatorId: payload.userId,
             referenceNo: refNo,
             notes: item.notes || null,
+            factoryId: type === "OUT" ? (factoryId || null) : null,
           },
         });
         count++;

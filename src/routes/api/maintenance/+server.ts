@@ -32,7 +32,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     const body = await request.json();
 
     const record = await prisma.$transaction(async (tx) => {
-      await tx.tool.update({ where: { id: body.toolId }, data: { status: "MAINTENANCE" } });
+      await tx.tool.update({ where: { id: body.toolId }, data: { status: "MAINTENANCE", maintenanceCount: { increment: 1 } } });
       return tx.maintenanceRecord.create({
         data: { toolId: body.toolId, description: body.description, reporterId: payload.userId, notes: body.notes || null, repairVendor: body.repairVendor || null },
         include: { tool: { select: { toolCode: true, name: true } }, reporter: { select: { displayName: true } } },

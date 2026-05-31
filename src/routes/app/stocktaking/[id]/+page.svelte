@@ -13,6 +13,13 @@
   let searchTerm = "";
   let error = "";
 
+  const locationMap: Record<string, string> = {
+    IN_STOCK: "仓库",
+    IN_USE: "工厂",
+    MAINTENANCE: "维修中",
+    SCRAPPED: "已报废",
+  };
+
   $: id = $page.params.id;
   $: filteredItems = stocktaking?.items?.filter((i: any) => {
     if (!searchTerm) return true;
@@ -112,12 +119,12 @@
         点击 <button class="text-blue-600 underline" on:click={async () => {
           // Simple CSV export
           const items = stocktaking.items || [];
-          let csv = "刀具编码,名称,规格,预期数量,实际数量,差异,备注\n";
+          let csv = "刀具编码,名称,规格,位置,实际数量,差异,备注\n";
           for (const item of items) {
             const t = item.tool;
-            csv += `${t?.toolCode || ""},${t?.name || ""},${t?.specification || ""},${item.expectedQuantity},${item.actualQuantity},${item.difference},${item.notes || ""}\n`;
+            csv += `${t?.toolCode || ""},${t?.name || ""},${t?.specification || ""},${locationMap[t?.status || ""] || ""},${item.actualQuantity},${item.difference},${item.notes || ""}\n`;
           }
-          const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+          const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
@@ -136,7 +143,7 @@
             <th class="table-header">刀具编码</th>
             <th class="table-header">名称</th>
             <th class="table-header">规格</th>
-            <th class="table-header text-right">预期数量</th>
+            <th class="table-header">位置</th>
             <th class="table-header text-right">实际数量</th>
             <th class="table-header text-right">差异</th>
             {#if stocktaking.status === "IN_PROGRESS"}
@@ -151,7 +158,7 @@
               <td class="table-cell font-mono text-blue-600">{item.tool?.toolCode || "—"}</td>
               <td class="table-cell">{item.tool?.name || "—"}</td>
               <td class="table-cell text-gray-500">{item.tool?.specification || "—"}</td>
-              <td class="table-cell text-right">{item.expectedQuantity}</td>
+              <td class="table-cell"><span class="badge {item.tool?.status === 'IN_USE' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}">{locationMap[item.tool?.status || ''] || "—"}</span></td>
               <td class="table-cell text-right">
                 {#if stocktaking.status === "IN_PROGRESS"}
                   <input

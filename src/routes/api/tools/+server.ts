@@ -54,29 +54,45 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
   try {
     const payload = verifyToken(token);
+    if (payload.role !== "ADMIN") return json({ success: false, message: "权限不足" }, { status: 403 });
     const body = await request.json();
 
     const toolCode = await generateToolCode(body.categoryId);
 
-    const tool = await prisma.tool.create({
-      data: {
-        toolCode,
-        name: body.name,
-        specification: body.specification || null,
-        material: body.material || null,
-        brand: body.brand || null,
-        categoryId: body.categoryId,
-        locationId: body.locationId || null,
-        quantity: body.quantity || 0,
-        minQuantity: body.minQuantity || 1,
-        unit: body.unit || "把",
-        price: body.price ? parseFloat(body.price) : null,
-        notes: body.notes || null,
-      },
-      include: { category: true, location: true },
+    const count = Math.max(1, body.quantity || 1);
+    const tools = await prisma.$transaction(async (tx) => {
+      const created = [];
+      for (let i = 0; i < count; i++) {
+        const code = await generateToolCode(body.categoryId, tx);
+        const tool = await tx.tool.create({
+          data: {
+            toolCode: code,
+            name: body.name,
+            specification: body.specification || null,
+            specId: body.specId || null,
+            material: body.material || null,
+            brand: body.brand || null,
+            categoryId: body.categoryId,
+            locationId: body.locationId || null,
+            quantity: 1,
+            minQuantity: body.minQuantity || 1,
+            unit: body.unit || "把",
+            price: body.price ? parseFloat(body.price) : null,
+            notes: body.notes || null,
+          },
+          include: { category: true, location: true },
+        });
+        created.push(tool);
+      }
+      if (count > 0) {
+        await tx.toolTransaction.create({
+          data: { toolId: created[0].id, type: "IN", quantity: count, operatorId: payload.userId, notes: "初始入库" },
+        });
+      }
+      return created;
     });
 
-    return json({ success: true, tool });
+    return json({ success: true, tools, tool: tools[0], count });
   } catch (e) {
     console.error("Create tool error:", e);
     return json({ success: false, message: "创建失败" }, { status: 500 });

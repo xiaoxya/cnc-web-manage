@@ -114,6 +114,7 @@ model Tool {
   locationId    Int?
   quantity      Int         @default(0)
   minQuantity   Int         @default(1)
+  maintenanceCount Int         @default(0)
   unit          String      @default("把") @db.VarChar(20)
   price         Decimal?    @db.Decimal(10, 2)
   status        ToolStatus  @default(IN_STOCK)
@@ -141,16 +142,19 @@ model ToolTransaction {
   toolId      Int
   type        TransactionType
   quantity    Int
+  factoryId   Int?
   operatorId  Int
   referenceNo String?         @db.VarChar(100)
   notes       String?         @db.Text
   createdAt   DateTime        @default(now())
 
   tool     Tool @relation(fields: [toolId], references: [id])
+  factory  Factory? @relation(fields: [factoryId], references: [id])
   operator User @relation(fields: [operatorId], references: [id])
 
   @@index([toolId])
   @@index([createdAt])
+  @@index([factoryId])
   @@map("tool_transactions")
 }
 
@@ -172,6 +176,21 @@ model MaintenanceRecord {
   @@index([toolId])
   @@index([status])
   @@map("maintenance_records")
+}
+
+
+
+model Factory {
+  id          Int      @id @default(autoincrement())
+  name        String   @db.VarChar(200)
+  code        String   @unique @db.VarChar(50)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions ToolTransaction[]
+
+  @@map("factories")
 }
 
 model Stocktaking {

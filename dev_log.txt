@@ -1,0 +1,31 @@
+`config.kit.csrf.checkOrigin` has been deprecated in favour of `csrf.trustedOrigins`. It will be removed in a future version
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m816[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.8.105:[1m5173[22m/[39m
+prisma:query SELECT `cnc_manage`.`users`.`id`, `cnc_manage`.`users`.`username`, `cnc_manage`.`users`.`displayName`, `cnc_manage`.`users`.`role` FROM `cnc_manage`.`users` WHERE (`cnc_manage`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+10:42:37 [vite-plugin-svelte] C:/Users/MKing/Documents/cnc-web-manage/src/routes/app/+layout.svelte:81:12 A11y: visible, non-interactive elements with an on:click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as <button type="button"> or <a> might be more appropriate. See https://svelte.dev/docs/accessibility-warnings#a11y-click-events-have-key-events for more details.
+10:42:37 [vite-plugin-svelte] C:/Users/MKing/Documents/cnc-web-manage/src/routes/app/+layout.svelte:81:12 A11y: <div> with click, contextmenu handlers must have an ARIA role
+10:42:38 [vite-plugin-svelte] C:/Users/MKing/Documents/cnc-web-manage/src/routes/app/+layout.svelte:81:12 A11y: visible, non-interactive elements with an on:click event must be accompanied by a keyboard event handler. Consider whether an interactive element such as <button type="button"> or <a> might be more appropriate. See https://svelte.dev/docs/accessibility-warnings#a11y-click-events-have-key-events for more details.
+10:42:38 [vite-plugin-svelte] C:/Users/MKing/Documents/cnc-web-manage/src/routes/app/+layout.svelte:81:12 A11y: <div> with click, contextmenu handlers must have an ARIA role
+prisma:query SELECT `cnc_manage`.`users`.`id`, `cnc_manage`.`users`.`username`, `cnc_manage`.`users`.`displayName`, `cnc_manage`.`users`.`role` FROM `cnc_manage`.`users` WHERE (`cnc_manage`.`users`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT SUM(`quantity`) FROM (SELECT `cnc_manage`.`tools`.`quantity` FROM `cnc_manage`.`tools` WHERE `cnc_manage`.`tools`.`status` <> ?) AS `sub`
+prisma:query SELECT COUNT(*) FROM (SELECT `cnc_manage`.`tools`.`id` FROM `cnc_manage`.`tools` WHERE `cnc_manage`.`tools`.`status` = ?) AS `sub`
+prisma:query SELECT COUNT(*) FROM (SELECT `cnc_manage`.`tools`.`id` FROM `cnc_manage`.`tools` WHERE (`cnc_manage`.`tools`.`quantity` <= ? AND `cnc_manage`.`tools`.`status` <> ?)) AS `sub`
+prisma:query SELECT `cnc_manage`.`tool_transactions`.`id`, `cnc_manage`.`tool_transactions`.`toolId`, `cnc_manage`.`tool_transactions`.`type`, `cnc_manage`.`tool_transactions`.`quantity`, `cnc_manage`.`tool_transactions`.`factoryId`, `cnc_manage`.`tool_transactions`.`operatorId`, `cnc_manage`.`tool_transactions`.`referenceNo`, `cnc_manage`.`tool_transactions`.`notes`, `cnc_manage`.`tool_transactions`.`createdAt` FROM `cnc_manage`.`tool_transactions` WHERE 1=1 ORDER BY `cnc_manage`.`tool_transactions`.`createdAt` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `cnc_manage`.`maintenance_records`.`id`, `cnc_manage`.`maintenance_records`.`toolId`, `cnc_manage`.`maintenance_records`.`status`, `cnc_manage`.`maintenance_records`.`description`, `cnc_manage`.`maintenance_records`.`cost`, `cnc_manage`.`maintenance_records`.`repairVendor`, `cnc_manage`.`maintenance_records`.`reporterId`, `cnc_manage`.`maintenance_records`.`completedAt`, `cnc_manage`.`maintenance_records`.`notes`, `cnc_manage`.`maintenance_records`.`createdAt` FROM `cnc_manage`.`maintenance_records` WHERE 1=1 ORDER BY `cnc_manage`.`maintenance_records`.`createdAt` DESC LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) FROM (SELECT `cnc_manage`.`tools`.`id` FROM `cnc_manage`.`tools` WHERE `cnc_manage`.`tools`.`status` = ?) AS `sub`
+prisma:query SELECT `cnc_manage`.`tools`.`id`, `cnc_manage`.`tools`.`toolCode`, `cnc_manage`.`tools`.`name` FROM `cnc_manage`.`tools` WHERE `cnc_manage`.`tools`.`id` IN (?,?,?,?,?)
+prisma:query SELECT `cnc_manage`.`tools`.`id`, `cnc_manage`.`tools`.`toolCode`, `cnc_manage`.`tools`.`name` FROM `cnc_manage`.`tools` WHERE `cnc_manage`.`tools`.`id` IN (?)
+prisma:query SELECT `cnc_manage`.`factories`.`id`, `cnc_manage`.`factories`.`name`, `cnc_manage`.`factories`.`code`, `cnc_manage`.`factories`.`description`, `cnc_manage`.`factories`.`createdAt`, `cnc_manage`.`factories`.`updatedAt` FROM `cnc_manage`.`factories` WHERE 1=1 ORDER BY `cnc_manage`.`factories`.`code` ASC
+prisma:query SELECT t1.toolId, t1.factoryId
+       FROM tool_transactions t1
+       INNER JOIN (
+         SELECT toolId, MAX(createdAt) as maxCreatedAt
+         FROM tool_transactions
+         WHERE type = 'OUT' AND factoryId IS NOT NULL
+         GROUP BY toolId
+       ) t2 ON t1.toolId = t2.toolId AND t1.createdAt = t2.maxCreatedAt
+       WHERE t1.type = 'OUT' AND t1.factoryId IS NOT NULL
+prisma:query SELECT `cnc_manage`.`tools`.`id` FROM `cnc_manage`.`tools` WHERE (`cnc_manage`.`tools`.`id` IN (?,?,?,?) AND `cnc_manage`.`tools`.`status` = ?)

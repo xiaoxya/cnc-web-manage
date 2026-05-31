@@ -14,7 +14,7 @@ export const GET: RequestHandler = async ({ request, params }) => {
         operator: { select: { displayName: true } },
         items: {
           include: {
-            tool: { select: { toolCode: true, name: true, specification: true, quantity: true } },
+            tool: { select: { toolCode: true, name: true, specification: true, quantity: true, status: true } },
           },
           orderBy: { id: "asc" },
         },

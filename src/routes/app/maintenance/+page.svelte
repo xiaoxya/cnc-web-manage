@@ -5,6 +5,12 @@
   import Modal from "$lib/components/ui/Modal.svelte";
 
   let records: any[] = [];
+  let activeMaintTab = "records";
+  let stats: any = { vendorStats: [], monthStats: [], topTools: [], totalRecords: 0, totalCost: 0, inMaintenance: 0 };
+  let statsLoading = false;
+  let statsVendor = "";
+  let statsYear = new Date().getFullYear().toString();
+  let statsMonth = "";
   let loading = true;
   let statusFilter = "";
   let search = "";
@@ -27,7 +33,20 @@
     { value: "COMPLETED", label: "已完成" },
   ];
 
-  onMount(() => { loadRecords(); loadVendors(); });
+  onMount(() => { loadRecords(); loadVendors(); loadStats(); });
+
+  async function loadStats() {
+    statsLoading = true;
+    try {
+      const params = new URLSearchParams();
+      if (statsVendor) params.set("vendor", statsVendor);
+      if (statsMonth) params.set("month", statsMonth);
+      if (statsYear) params.set("year", statsYear);
+      const res = await fetch("/api/maintenance/stats?" + params);
+      if (res.ok) stats = await res.json();
+    } catch {}
+    statsLoading = false;
+  }
 
   async function loadVendors() {
     try {
@@ -100,6 +119,15 @@
 
 <div class="flex items-center justify-between mb-6">
   <h2 class="text-2xl font-bold">刀具维修</h2>
+</div>
+
+<!-- Tabs -->
+<div class="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
+  <button class="px-4 py-2 text-sm rounded-md {activeMaintTab === 'records' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeMaintTab = "records"}>维修记录</button>
+  <button class="px-4 py-2 text-sm rounded-md {activeMaintTab === 'stats' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => { activeMaintTab = "stats"; loadStats(); }}>维修统计</button>
+</div>
+
+<div class="flex items-center justify-between mb-6">
   <button class="btn-primary" on:click={() => showNewModal = true}>+ 报修</button>
 </div>
 
@@ -160,6 +188,172 @@
     </div>
   {/if}
 </div>
+
+{#if activeMaintTab === "stats"}
+  <div class="space-y-6">
+    <!-- Filters -->
+    <div class="card">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="label">维修厂家</label>
+          <select class="input" bind:value={statsVendor} on:change={loadStats}>
+            <option value="">全部厂家</option>
+            {#each vendors as v}
+              <option value={v.name}>{v.name}</option>
+            {/each}
+          </select>
+        </div>
+        <div>
+          <label class="label">年份</label>
+          <select class="input" bind:value={statsYear} on:change={loadStats}>
+            {#each Array(5) as _, i}
+              {@const y = new Date().getFullYear() - i}
+              <option value={y}>{y}年</option>
+            {/each}
+          </select>
+        </div>
+        <div>
+          <label class="label">月份</label>
+          <select class="input" bind:value={statsMonth} on:change={loadStats}>
+            <option value="">全部</option>
+            {#each Array(12) as _, i}
+              {@const m = String(i + 1).padStart(2, "0")}
+              <option value={m}>{m}月</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {#if statsLoading}
+      <div class="text-center py-8 text-gray-400">加载中...</div>
+    {:else}
+      <!-- Summary cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="card">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-2xl">🔧</div>
+            <div>
+              <p class="text-sm text-gray-500">维修总次数</p>
+              <p class="text-3xl font-bold">{stats.totalRecords}</p>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center text-2xl">🔨</div>
+            <div>
+              <p class="text-sm text-gray-500">维修中</p>
+              <p class="text-3xl font-bold text-red-600">{stats.inMaintenance}</p>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center text-2xl">💰</div>
+            <div>
+              <p class="text-sm text-gray-500">维修总费用</p>
+              <p class="text-3xl font-bold text-green-600">¥{stats.totalCost.toFixed(2)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- By vendor -->
+      <div class="card">
+        <h3 class="text-lg font-semibold mb-4">按维修厂家统计</h3>
+        {#if stats.vendorStats.length === 0}
+          <p class="text-gray-400 text-sm">暂无数据</p>
+        {:else}
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="table-header">维修厂家</th>
+                  <th class="table-header">维修次数</th>
+                  <th class="table-header">维修费用</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                {#each stats.vendorStats as vs}
+                  <tr>
+                    <td class="table-cell font-medium">{vs.vendor || "未指定"}</td>
+                    <td class="table-cell">{vs.count} 次</td>
+                    <td class="table-cell">¥{vs.cost.toFixed(2)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+      </div>
+
+      <!-- By month -->
+      <div class="card">
+        <h3 class="text-lg font-semibold mb-4">按月份统计</h3>
+        {#if stats.monthStats.length === 0}
+          <p class="text-gray-400 text-sm">暂无数据</p>
+        {:else}
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="table-header">月份</th>
+                  <th class="table-header">维修次数</th>
+                  <th class="table-header">维修费用</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                {#each stats.monthStats as ms}
+                  <tr>
+                    <td class="table-cell font-medium">{ms.month}</td>
+                    <td class="table-cell">{ms.count} 次</td>
+                    <td class="table-cell">¥{ms.cost.toFixed(2)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Top tools by maintenance count -->
+      <div class="card">
+        <h3 class="text-lg font-semibold mb-4">刀具维修次数排行</h3>
+        {#if stats.topTools.length === 0}
+          <p class="text-gray-400 text-sm">暂无数据</p>
+        {:else}
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="table-header">排名</th>
+                  <th class="table-header">刀具编码</th>
+                  <th class="table-header">刀具名称</th>
+                  <th class="table-header">维修次数</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-200">
+                {#each stats.topTools as tt, i}
+                  <tr>
+                    <td class="table-cell text-gray-500">{i + 1}</td>
+                    <td class="table-cell font-mono text-blue-600">{tt.toolCode}</td>
+                    <td class="table-cell">{tt.name}</td>
+                    <td class="table-cell">
+                      <span class="badge {tt.maintenanceCount > 5 ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}">
+                        {tt.maintenanceCount} 次
+                      </span>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+      </div>
+    {/if}
+  </div>
+{/if}
 
 <!-- New maintenance modal -->
 <Modal title="刀具报修" bind:show={showNewModal} confirmText="提交报修" on:confirm={submitNewMaintenance} {newLoading} on:close={() => { showNewModal = false; scanCode = ""; scannedTool = null; newError = ""; }}>

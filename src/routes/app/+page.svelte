@@ -1,14 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import Card from "$lib/components/ui/Card.svelte";
 
   let stats = {
     totalTools: 0,
     lowStockCount: 0,
     maintenanceCount: 0,
-      scrappedToolCount: 0,
-    recentTransactions: [] as any[],
-    recentMaintenance: [] as any[],
+    scrappedToolCount: 0,
+    recentTransactions: [],
+    recentMaintenance: [],
+    factoryStats: [],
   };
   let loading = true;
 
@@ -16,19 +16,16 @@
     try {
       const res = await fetch("/api/tools/stats");
       if (res.ok) stats = await res.json();
-    } catch {}
+    } catch (e) {}
     loading = false;
   });
 
-  function formatDate(d: string) {
+  function formatDate(d) {
     return new Date(d).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
   }
 
-  const statusMap: Record<string, string> = {
-    IN_STOCK: "在库", IN_USE: "使用中", MAINTENANCE: "维修中", SCRAPPED: "已报废"
-  };
-  const typeMap: Record<string, string> = { IN: "入库", OUT: "出库" };
-  const maintMap: Record<string, string> = { IN_MAINTENANCE: "维修中", COMPLETED: "已完成" };
+  const typeMap = { IN: "入库", OUT: "出库" };
+  const maintMap = { IN_MAINTENANCE: "维修中", COMPLETED: "已完成" };
 </script>
 
 <h2 class="text-2xl font-bold mb-6">仪表盘</h2>
@@ -36,11 +33,10 @@
 {#if loading}
   <div class="text-center py-12 text-gray-400">加载中...</div>
 {:else}
-  <!-- Stats cards -->
   <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
     <div class="card">
       <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-2xl">🔧</div>
+        <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-2xl">🔡</div>
         <div>
           <p class="text-sm text-gray-500">刀具总数</p>
           <p class="text-3xl font-bold">{stats.totalTools}</p>
@@ -56,9 +52,9 @@
         </div>
       </div>
     </div>
-      <div class="card">
+    <div class="card">
       <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center text-2xl">🔨</div>
+        <div class="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center text-2xl">🔧</div>
         <div>
           <p class="text-sm text-gray-500">维修中</p>
           <p class="text-3xl font-bold text-red-600">{stats.maintenanceCount}</p>
@@ -76,8 +72,23 @@
     </div>
   </div>
 
+  {#if stats.factoryStats && stats.factoryStats.length > 0}
+  <div class="card mb-6">
+    <h3 class="text-lg font-semibold mb-4">各工厂在用刀具</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      {#each stats.factoryStats as f}
+        <div class="bg-gray-50 rounded-lg p-3 text-center">
+          <p class="text-xs text-gray-500 truncate">{f.factoryCode}</p>
+          <p class="text-sm font-medium truncate" title={f.factoryName}>{f.factoryName}</p>
+          <p class="text-2xl font-bold text-blue-600">{f.count}</p>
+          <p class="text-xs text-gray-400">把</p>
+        </div>
+      {/each}
+    </div>
+  </div>
+  {/if}
+
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Recent transactions -->
     <div class="card">
       <h3 class="text-lg font-semibold mb-4">最近出入库</h3>
       {#if stats.recentTransactions.length === 0}
@@ -103,7 +114,6 @@
       {/if}
     </div>
 
-    <!-- Recent maintenance -->
     <div class="card">
       <h3 class="text-lg font-semibold mb-4">最近维修</h3>
       {#if stats.recentMaintenance.length === 0}

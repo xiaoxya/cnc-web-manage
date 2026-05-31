@@ -32,13 +32,19 @@
   // Repair Vendors
   let vendors: any[] = [];
   let vendorForm: any = { name: "" };
+
+  // Factories
+  let factories: any[] = [];
+  let factoryForm: any = { code: "", name: "", description: "" };
+  let factoryEditMode = false;
+  let factoryModal = false;
   let vendorEditMode = false;
   let vendorModal = false;
 
   onMount(() => { loadAll(); });
 
   async function loadAll() {
-    await Promise.all([loadCategories(), loadLocations(), loadSpecs(), loadUsers(), loadVendors()]);
+    await Promise.all([loadCategories(), loadLocations(), loadSpecs(), loadUsers(), loadVendors(), loadFactories()]);
   }
 
   async function loadCategories() {
@@ -54,6 +60,11 @@
   async function loadSpecs() {
     const res = await fetch("/api/specs");
     if (res.ok) specs = await res.json();
+  }
+
+  async function loadFactories() {
+    const res = await fetch("/api/factories");
+    if (res.ok) factories = await res.json();
   }
 
   async function loadVendors() {
@@ -141,6 +152,24 @@
     vendorModal = false; loadVendors();
   }
 
+  // Factory CRUD
+  function openFactoryAdd() { factoryForm = { code: "", name: "", description: "" }; factoryEditMode = false; factoryModal = true; }
+  function openFactoryEdit(f: any) { factoryForm = { ...f }; factoryEditMode = true; factoryModal = true; }
+
+  async function saveFactory() {
+    const method = factoryEditMode ? "PUT" : "POST";
+    let url = "/api/factories";
+    if (factoryEditMode) url += "?id=" + factoryForm.id;
+    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(factoryForm) });
+    factoryModal = false; loadFactories();
+  }
+
+  async function deleteFactory(id: number) {
+    if (!confirm("确定删除此工厂？")) return;
+    await fetch("/api/factories?id=" + id, { method: "DELETE" });
+    loadFactories();
+  }
+
   async function deleteVendor(id: number) {
     if (!confirm("确定删除此维修厂家？")) return;
     await fetch("/api/repair-vendors?id=" + id, { method: "DELETE" });
@@ -162,6 +191,7 @@
     <button class="px-4 py-2 text-sm rounded-md {activeTab === 'specs' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "specs"}>规格型号</button>
   <button class="px-4 py-2 text-sm rounded-md {activeTab === 'locations' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "locations"}>库位管理</button>
   <button class="px-4 py-2 text-sm rounded-md {activeTab === 'vendors' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "vendors"}>维修厂家</button>
+  <button class="px-4 py-2 text-sm rounded-md {activeTab === 'factories' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "factories"}>工厂管理</button>
   <button class="px-4 py-2 text-sm rounded-md {activeTab === 'users' ? 'bg-white shadow-sm font-medium' : 'text-gray-600 hover:text-gray-900'}" on:click={() => activeTab = "users"}>用户管理</button>
 </div>
 
@@ -317,7 +347,45 @@
   </div>
 {/if}
 
-{#if activeTab === "vendors"}
+{#if activeTab === "factories"}
+    <div class="card">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">工厂管理</h3>
+        <button class="btn-primary text-sm" on:click={openFactoryAdd}>+ 新增工厂</button>
+      </div>
+      {#if factories.length === 0}
+        <p class="text-gray-400 text-sm">暂无工厂</p>
+      {:else}
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="table-header">编码</th>
+                <th class="table-header">名称</th>
+                <th class="table-header">描述</th>
+                <th class="table-header">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              {#each factories as f}
+                <tr>
+                  <td class="table-cell font-mono">{f.code}</td>
+                  <td class="table-cell">{f.name}</td>
+                  <td class="table-cell text-gray-500">{f.description || "—"}</td>
+                  <td class="table-cell">
+                    <button class="text-blue-600 hover:text-blue-800 mr-2" on:click={() => openFactoryEdit(f)}>编辑</button>
+                    <button class="text-red-600 hover:text-red-800" on:click={() => deleteFactory(f.id)}>删除</button>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+    </div>
+  {/if}
+
+  {#if activeTab === "vendors"}
     <div class="card">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-lg font-semibold">维修厂家管理</h3>
@@ -361,6 +429,15 @@
     <div><label class="label">编码前缀 <span class="text-red-500">*</span></label><input class="input" bind:value={catForm.code} placeholder="如 LAT, MIL" maxlength="10" /></div>
     <div><label class="label">名称 <span class="text-red-500">*</span></label><input class="input" bind:value={catForm.name} placeholder="如 车刀" /></div>
     <div><label class="label">描述</label><input class="input" bind:value={catForm.description} placeholder="可选描述" /></div>
+  </div>
+</Modal>
+
+<!-- Factory Modal -->
+<Modal title={factoryEditMode ? "编辑工厂" : "新增工厂"} bind:show={factoryModal} confirmText="保存" on:confirm={saveFactory} on:close={() => factoryModal = false}>
+  <div class="space-y-3">
+    <div><label class="label">编码 <span class="text-red-500">*</span></label><input class="input" bind:value={factoryForm.code} placeholder="如：FACTORY01" /></div>
+    <div><label class="label">名称 <span class="text-red-500">*</span></label><input class="input" bind:value={factoryForm.name} placeholder="如：一号工厂" /></div>
+    <div><label class="label">描述</label><input class="input" bind:value={factoryForm.description} placeholder="可选" /></div>
   </div>
 </Modal>
 
