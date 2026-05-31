@@ -2,19 +2,10 @@
   import { page } from "$app/stores";
   import { onMount } from "svelte";
 
-  let user: { id: number; username: string; displayName: string; role: string } | null = null;
   let sidebarOpen = true;
   let dropdownOpen = false;
 
-  onMount(async () => {
-    try {
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.user) user = data.user;
-      }
-    } catch {}
-  });
+  const user = $page.data.user ?? null;
 
   function toggleDropdown() {
     dropdownOpen = !dropdownOpen;
@@ -81,18 +72,26 @@
             </span>
             <span>{user.displayName}</span>
             <span class="text-xs text-gray-400">({user.role === "ADMIN" ? "管理员" : "操作员"})</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
           </button>
           {#if dropdownOpen}
-            <!-- backdrop to catch outside clicks -->
-            <div class="fixed inset-0 z-40" on:click={closeDropdown} on:contextmenu|preventDefault={closeDropdown}></div>
-            <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-              <button on:click={logout} class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">退出登录</button>
+            <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50" on:click|self={closeDropdown}>
+              <div class="px-4 py-2 border-b border-gray-100">
+                <p class="text-sm font-medium">{user.displayName}</p>
+                <p class="text-xs text-gray-400">{user.username}</p>
+              </div>
+              <button on:click={logout} class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                退出登录
+              </button>
             </div>
           {/if}
         </div>
       {/if}
     </header>
-    <main class="flex-1 p-6 overflow-auto">
+
+    <main class="flex-1 p-6">
       <slot />
     </main>
   </div>

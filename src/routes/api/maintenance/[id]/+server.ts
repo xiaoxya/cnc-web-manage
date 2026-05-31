@@ -9,7 +9,7 @@ export const GET: RequestHandler = async ({ request, params }) => {
   try {
     verifyToken(token);
     const record = await prisma.maintenanceRecord.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(params.id ?? "0") },
       include: { tool: { select: { toolCode: true, name: true } }, reporter: { select: { displayName: true } } },
     });
     return json(record);
@@ -21,7 +21,7 @@ export const PUT: RequestHandler = async ({ request, params }) => {
   if (!token) return json({ success: false, message: "未登录" }, { status: 401 });
   try {
     const payload = verifyToken(token);
-    const id = parseInt(params.id);
+    const id = parseInt(params.id ?? "0");
     const body = await request.json();
 
     const record = await prisma.$transaction(async (tx) => {

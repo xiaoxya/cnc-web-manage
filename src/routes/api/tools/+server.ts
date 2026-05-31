@@ -1,6 +1,8 @@
 import { getTokenFromCookies, verifyToken } from "$lib/server/auth";
 import { prisma } from "$lib/server/db";
 import { generateToolCode } from "$lib/utils/toolCode";
+import { validateBody, apiError, apiSuccess } from "$lib/server/validation";
+import { toolSchema } from "$lib/schemas";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
@@ -18,7 +20,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
     const locationId = url.searchParams.get("locationId");
     const status = url.searchParams.get("status");
 
-    const where: any = {};
+    const where: Record<string, unknown> = {};
 
     if (search) {
       where.OR = [
@@ -43,58 +45,68 @@ export const GET: RequestHandler = async ({ request, url }) => {
     ]);
 
     return json({ tools, total, page, pageSize });
-  } catch {
-    return json({ tools: [], total: 0 }, { status: 401 });
+  } catch (e) {
+    console.error("GET tools error:", e);
+    return json({ tools: [], total: 0 }, { status: 500 });
   }
 };
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return json({ success: false, message: "未登录" }, { status: 401 });
+  if (!token) return apiError("未登录", 401);
 
   try {
     const payload = verifyToken(token);
-    if (payload.role !== "ADMIN") return json({ success: false, message: "权限不足" }, { status: 403 });
+    if (payload.role !== "ADMIN") return apiError("权限不足", 403);
     const body = await request.json();
 
-    const toolCode = await generateToolCode(body.categoryId);
+    const parsed = validateBody(toolSchema, body);
+    if (!parsed.success) return apiError(parsed.error, 400);
 
-    const count = Math.max(1, body.quantity || 1);
+    const count = Math.max(1, parsed.data.quantity || 1);
     const tools = await prisma.$transaction(async (tx) => {
-      const created = [];
+      const created: unknown[] = [];
       for (let i = 0; i < count; i++) {
-        const code = await generateToolCode(body.categoryId, tx);
+        const code = await generateToolCode(parsed.data.categoryId, tx);
         const tool = await tx.tool.create({
           data: {
             toolCode: code,
-            name: body.name,
-            specification: body.specification || null,
-            specId: body.specId || null,
-            material: body.material || null,
-            brand: body.brand || null,
-            categoryId: body.categoryId,
-            locationId: body.locationId || null,
+            name: parsed.data.name,
+            specification: parsed.data.specification ?? null,
+            specId: (body as Record<string, unknown>).specId as number ?? null,
+            material: parsed.data.material ?? null,
+            brand: parsed.data.brand ?? null,
+            categoryId: parsed.data.categoryId,
+            locationId: parsed.data.locationId ?? null,
             quantity: 1,
-            minQuantity: body.minQuantity || 1,
-            unit: body.unit || "把",
-            price: body.price ? parseFloat(body.price) : null,
-            notes: body.notes || null,
+            minQuantity: parsed.data.minQuantity,
+            unit: parsed.data.unit,
+            price: parsed.data.price ?? null,
+            notes: parsed.data.notes ?? null,
           },
           include: { category: true, location: true },
         });
         created.push(tool);
       }
       if (count > 0) {
+        const first = created[0] as { id: number };
         await tx.toolTransaction.create({
-          data: { toolId: created[0].id, type: "IN", quantity: count, operatorId: payload.userId, notes: "初始入库" },
+          data: {
+            toolId: first.id,
+            type: "IN",
+            quantity: count,
+            operatorId: payload.userId,
+            notes: "初始入库",
+          },
         });
       }
       return created;
     });
 
-    return json({ success: true, tools, tool: tools[0], count });
+    const firstTool = tools[0] as Record<string, unknown>;
+    return apiSuccess({ tools: tools as unknown as Record<string, unknown>, tool: firstTool, count });
   } catch (e) {
     console.error("Create tool error:", e);
-    return json({ success: false, message: "创建失败" }, { status: 500 });
+    return apiError("创建失败");
   }
 };

@@ -1,22 +1,24 @@
 import { getTokenFromCookies, verifyToken } from "$lib/server/auth";
 import { prisma } from "$lib/server/db";
 import { generateReferenceNo } from "$lib/utils";
+import { validateBody, apiError, apiSuccess } from "$lib/server/validation";
+import { batchTransactionSchema } from "$lib/schemas";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return json({ success: false, message: "未登录" }, { status: 401 });
+  if (!token) return apiError("未登录", 401);
 
   try {
     const payload = verifyToken(token);
-    if (payload.role !== "ADMIN") return json({ success: false, message: "权限不足" }, { status: 403 });
+    if (payload.role !== "ADMIN") return apiError("权限不足", 403);
     const body = await request.json();
-    const { type, items, referenceNo, factoryId } = body;
 
-    if (!["IN", "OUT"].includes(type)) {
-      return json({ success: false, message: "无效的操作类型" }, { status: 400 });
-    }
+    const parsed = validateBody(batchTransactionSchema, body);
+    if (!parsed.success) return apiError(parsed.error, 400);
+
+    const { type, items, referenceNo, factoryId } = body as Record<string, unknown> & { type: "IN" | "OUT"; items: { toolId: number; quantity: number; notes?: string | null }[]; referenceNo?: string | null; factoryId?: number | null };
 
     const refNo = referenceNo || generateReferenceNo(type);
     let count = 0;
@@ -53,9 +55,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
       }
     });
 
-    return json({ success: true, count, referenceNo: refNo });
-  } catch (e: any) {
-    console.error("Batch transaction error:", e);
-    return json({ success: false, message: e.message || "操作失败" }, { status: 500 });
+    return apiSuccess({ count, referenceNo: refNo });
+  } catch (e) {
+    const err = e as Error;
+    console.error("Batch transaction error:", err.message || e);
+    return apiError(err.message || "操作失败");
   }
 };

@@ -11,7 +11,6 @@ export const GET: RequestHandler = async ({ request }) => {
   try {
     verifyToken(token);
 
-    // 统计所有非报废刀具的总数量（合计库存）
     const toolsAgg = await prisma.tool.aggregate({
       where: { status: { not: "SCRAPPED" } },
       _sum: { quantity: true },
@@ -34,34 +33,40 @@ export const GET: RequestHandler = async ({ request }) => {
       }),
     ]);
 
-    // 统计各工厂当前在用刀具数量（只统计状态为IN_USE的刀具）
-    // 通过查询最新的OUT交易来确定刀具当前所在工厂
+    // Get factories
     const factories = await prisma.factory.findMany({ orderBy: { code: "asc" } });
 
-    const latestOutTxs: Array<{toolId: number; factoryId: number}> = await prisma.$queryRawUnsafe(
-      `SELECT t1.toolId, t1.factoryId
-       FROM tool_transactions t1
+    // For each tool that has ever been sent to a factory, find its latest transaction.
+    // If latest transaction is OUT, tool is still at factory. If IN (return), it's not.
+    const toolFactoryStatus: Array<{toolId: number; factoryId: number; latestType: string}> = await prisma.$queryRawUnsafe(
+      `SELECT t.toolId, t.factoryId, t.type as latestType
+       FROM tool_transactions t
        INNER JOIN (
          SELECT toolId, MAX(createdAt) as maxCreatedAt
          FROM tool_transactions
-         WHERE type = 'OUT' AND factoryId IS NOT NULL
+         WHERE factoryId IS NOT NULL
          GROUP BY toolId
-       ) t2 ON t1.toolId = t2.toolId AND t1.createdAt = t2.maxCreatedAt
-       WHERE t1.type = 'OUT' AND t1.factoryId IS NOT NULL`
+       ) latest ON t.toolId = latest.toolId AND t.createdAt = latest.maxCreatedAt
+       WHERE t.factoryId IS NOT NULL`
     );
 
-    // 取得当前在用中的刀具（状态IN_USE且最新出库记录确定工厂）
-    const inUseToolIds = latestOutTxs.map(t => t.toolId);
-    const inUseTools = await prisma.tool.findMany({
-      where: { id: { in: inUseToolIds }, status: "IN_USE" },
-      select: { id: true },
-    });
+    // Only count tools where status is IN_USE AND latest transaction is OUT (not returned)
+    const outToolIds = toolFactoryStatus
+      .filter(tx => tx.latestType === "OUT")
+      .map(tx => tx.toolId);
+
+    const inUseTools = outToolIds.length > 0
+      ? await prisma.tool.findMany({
+          where: { id: { in: outToolIds }, status: "IN_USE" },
+          select: { id: true },
+        })
+      : [];
     const inUseIdSet = new Set(inUseTools.map(t => t.id));
 
-    // 统计每个工厂的当前在用刀具数
+    // Count per factory
     const factoryCounts = new Map<number, number>();
-    for (const tx of latestOutTxs) {
-      if (inUseIdSet.has(tx.toolId)) {
+    for (const tx of toolFactoryStatus) {
+      if (tx.latestType === "OUT" && inUseIdSet.has(tx.toolId)) {
         factoryCounts.set(tx.factoryId, (factoryCounts.get(tx.factoryId) || 0) + 1);
       }
     }

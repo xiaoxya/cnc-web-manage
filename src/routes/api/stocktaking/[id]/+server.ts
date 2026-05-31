@@ -9,7 +9,7 @@ export const GET: RequestHandler = async ({ request, params }) => {
   try {
     verifyToken(token);
     const stocktaking = await prisma.stocktaking.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(params.id ?? "0") },
       include: {
         operator: { select: { displayName: true } },
         items: {
@@ -29,7 +29,7 @@ export const PUT: RequestHandler = async ({ request, params, cookies }) => {
   if (!token) return json({ success: false, message: "未登录" }, { status: 401 });
   try {
     const payload = verifyToken(token);
-    const id = parseInt(params.id);
+    const id = parseInt(params.id ?? "0");
     const body = await request.json();
 
     // Update item
@@ -51,7 +51,7 @@ export const DELETE: RequestHandler = async ({ request, params, url }) => {
   if (!token) return json({ success: false, message: "未登录" }, { status: 401 });
   try {
     verifyToken(token);
-    const id = parseInt(params.id);
+    const id = parseInt(params.id ?? "0");
 
     const complete = url.searchParams.get("complete") === "true";
 

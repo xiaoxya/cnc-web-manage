@@ -1,8 +1,15 @@
 import { getTokenFromCookies, verifyToken } from "$lib/server/auth";
 import { prisma } from "$lib/server/db";
 import { isAdmin } from "$lib/server/permissions";
+import { validateBody, apiError, apiSuccess } from "$lib/server/validation";
+import { z } from "zod";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
+
+const specSchema = z.object({
+  name: z.string().min(1, "型号不能为空").max(255),
+  categoryId: z.number().int().positive().optional().nullable(),
+});
 
 export const GET: RequestHandler = async ({ request, url }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
@@ -17,46 +24,67 @@ export const GET: RequestHandler = async ({ request, url }) => {
       orderBy: { name: "asc" },
     });
     return json(specs);
-  } catch { return json([]); }
+  } catch (e) {
+    console.error("GET specs error:", e);
+    return json([]);
+  }
 };
 
 export const POST: RequestHandler = async ({ request }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return json({ success: false }, { status: 401 });
+  if (!token) return apiError("未登录", 401);
   try {
     const payload = verifyToken(token);
-    if (!isAdmin(payload.role)) return json({ success: false, message: "权限不足" }, { status: 403 });
+    if (!isAdmin(payload.role)) return apiError("权限不足", 403);
+
     const body = await request.json();
-    const spec = await prisma.spec.create({
-      data: { name: body.name, categoryId: body.categoryId || null },
-    });
-    return json({ success: true, spec });
-  } catch { return json({ success: false, message: "创建失败" }, { status: 500 }); }
+    const parsed = validateBody(specSchema, body);
+    if (!parsed.success) return apiError(parsed.error, 400);
+
+    const spec = await prisma.spec.create({ data: parsed.data });
+    return apiSuccess({ spec: spec as unknown as Record<string, unknown> });
+  } catch (e) {
+    console.error("POST specs error:", e);
+    return apiError("创建失败");
+  }
 };
 
 export const PUT: RequestHandler = async ({ request }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return json({ success: false }, { status: 401 });
+  if (!token) return apiError("未登录", 401);
   try {
     const payload = verifyToken(token);
-    if (!isAdmin(payload.role)) return json({ success: false, message: "权限不足" }, { status: 403 });
+    if (!isAdmin(payload.role)) return apiError("权限不足", 403);
+
     const body = await request.json();
+    if (!body.id) return apiError("缺少ID", 400);
+    const parsed = validateBody(specSchema, body);
+    if (!parsed.success) return apiError(parsed.error, 400);
+
     const spec = await prisma.spec.update({
       where: { id: body.id },
-      data: { name: body.name, categoryId: body.categoryId || null },
+      data: parsed.data,
     });
-    return json({ success: true, spec });
-  } catch { return json({ success: false, message: "更新失败" }, { status: 500 }); }
+    return apiSuccess({ spec: spec as unknown as Record<string, unknown> });
+  } catch (e) {
+    console.error("PUT specs error:", e);
+    return apiError("更新失败");
+  }
 };
 
 export const DELETE: RequestHandler = async ({ request, url }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return json({ success: false }, { status: 401 });
+  if (!token) return apiError("未登录", 401);
   try {
     const payload = verifyToken(token);
-    if (!isAdmin(payload.role)) return json({ success: false, message: "权限不足" }, { status: 403 });
+    if (!isAdmin(payload.role)) return apiError("权限不足", 403);
+
     const id = parseInt(url.searchParams.get("id") || "0");
+    if (!id) return apiError("无效ID", 400);
     await prisma.spec.delete({ where: { id } });
-    return json({ success: true });
-  } catch { return json({ success: false, message: "删除失败" }, { status: 500 }); }
+    return apiSuccess({});
+  } catch (e) {
+    console.error("DELETE specs error:", e);
+    return apiError("删除失败");
+  }
 };

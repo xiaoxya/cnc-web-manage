@@ -65,7 +65,7 @@
 
   async function completeStocktaking() {
     completeLoading = true;
-    const res = await fetch(`/api/stocktaking/${id}?complete=true`, { method: "DELETE" });
+    const res = await fetch(`/api/stocktaking/${id}/complete`, { method: "POST" });
     const data = await res.json();
     if (data.success) {
       goto("/app/stocktaking");

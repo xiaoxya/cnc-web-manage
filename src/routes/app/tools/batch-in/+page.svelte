@@ -1,4 +1,4 @@
-﻿<script lang="ts">
+<script lang="ts">
   import { onMount } from "svelte";
   import ScanInput from "$lib/components/ScanInput.svelte";
   import { goto } from "$app/navigation";

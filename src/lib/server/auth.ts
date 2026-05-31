@@ -2,8 +2,19 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import type { User } from "@prisma/client";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = "24h";
+
+function getSecret(): string {
+  if (!JWT_SECRET) {
+    if (process.env.NODE_ENV === "production") {
+      console.error("[FATAL] 缺少 JWT_SECRET 环境变量，拒绝启动");
+      process.exit(1);
+    }
+    return "dev-secret-change-in-production";
+  }
+  return JWT_SECRET;
+}
 
 export interface JwtPayload {
   userId: number;
@@ -22,13 +33,13 @@ export function verifyPassword(password: string, hash: string): Promise<boolean>
 export function signToken(user: Pick<User, "id" | "username" | "role">): string {
   return jwt.sign(
     { userId: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
+    getSecret(),
     { expiresIn: JWT_EXPIRES_IN }
   );
 }
 
 export function verifyToken(token: string): JwtPayload {
-  return jwt.verify(token, JWT_SECRET) as JwtPayload;
+  return jwt.verify(token, getSecret()) as JwtPayload;
 }
 
 export function getTokenFromCookies(cookieString: string | null): string | null {

@@ -15,46 +15,48 @@ export const GET: RequestHandler = async ({ request, url }) => {
 
     const factories = await prisma.factory.findMany({ orderBy: { code: "asc" } });
 
-    let latestOutTxs: Array<{toolId: number; factoryId: number; maxCreatedAt: Date}> = await prisma.$queryRawUnsafe(
-      `SELECT t1.toolId, t1.factoryId, t1.createdAt as maxCreatedAt
-       FROM tool_transactions t1
+    // Find latest transaction per tool (any type) where factoryId IS NOT NULL
+    let latestTxs: Array<{toolId: number; factoryId: number; latestType: string}> = await prisma.$queryRawUnsafe(
+      `SELECT t.toolId, t.factoryId, t.type as latestType
+       FROM tool_transactions t
        INNER JOIN (
          SELECT toolId, MAX(createdAt) as maxCreatedAt
          FROM tool_transactions
-         WHERE type = 'OUT' AND factoryId IS NOT NULL
+         WHERE factoryId IS NOT NULL
          GROUP BY toolId
-       ) t2 ON t1.toolId = t2.toolId AND t1.createdAt = t2.maxCreatedAt
-       WHERE t1.type = 'OUT' AND t1.factoryId IS NOT NULL`
+       ) latest ON t.toolId = latest.toolId AND t.createdAt = latest.maxCreatedAt
+       WHERE t.factoryId IS NOT NULL`
     );
 
-    // Apply factory filter at raw level
+    // Only keep tools whose latest transaction is OUT (not returned)
+    latestTxs = latestTxs.filter(tx => tx.latestType === "OUT");
+
     if (filterFactoryId) {
       const fId = parseInt(filterFactoryId);
-      latestOutTxs = latestOutTxs.filter(tx => tx.factoryId === fId);
+      latestTxs = latestTxs.filter(tx => tx.factoryId === fId);
     }
 
-    if (latestOutTxs.length === 0) {
+    if (latestTxs.length === 0) {
       const factorySummary = factories.map(f => ({ factoryId: f.id, factoryCode: f.code, factoryName: f.name, toolCount: 0 }));
       return json({ items: [], factorySummary });
     }
 
-    const toolIds = latestOutTxs.map(t => t.toolId);
+    const toolIds = latestTxs.map(t => t.toolId);
     const tools = await prisma.tool.findMany({
       where: { id: { in: toolIds } },
       include: { category: true, location: true },
     });
     const toolMap = new Map(tools.map(t => [t.id, t]));
 
-    const items: Array<any> = [];
+    const items: unknown[] = [];
     const factoryCounts = new Map<number, number>();
 
-    for (const tx of latestOutTxs) {
+    for (const tx of latestTxs) {
       const tool = toolMap.get(tx.toolId);
       if (!tool || tool.status === "SCRAPPED" || tool.status === "IN_STOCK") continue;
       const factory = factories.find(f => f.id === tx.factoryId);
       if (!factory) continue;
 
-      // Apply search filter
       if (search) {
         const q = search.toLowerCase();
         const matchesCode = tool.toolCode.toLowerCase().includes(q);
@@ -67,18 +69,19 @@ export const GET: RequestHandler = async ({ request, url }) => {
         id: tool.id,
         toolCode: tool.toolCode,
         name: tool.name,
-        specification: tool.specification || "",
-        categoryName: tool.category?.name || "",
-        quantity: 1,
+        specification: tool.specification,
+        quantity: tool.quantity,
+        unit: tool.unit,
+        category: tool.category,
+        location: tool.location,
         factoryId: factory.id,
         factoryCode: factory.code,
         factoryName: factory.name,
-        lastOutTime: tx.maxCreatedAt,
       });
+
       factoryCounts.set(factory.id, (factoryCounts.get(factory.id) || 0) + 1);
     }
 
-    // Recalculate factory summary for filtered results
     const factorySummary = factories.map(f => ({
       factoryId: f.id,
       factoryCode: f.code,
