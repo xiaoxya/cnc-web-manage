@@ -28,10 +28,15 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
     const token = signToken(user);
 
+    // Determine if we should use secure cookie based on X-Forwarded-Proto
+    const forwardedProto = request.headers.get("x-forwarded-proto");
+    const isSecure = forwardedProto === "https";
+
     cookies.set("token", token, {
       path: "/",
       httpOnly: true,
       sameSite: "lax",
+      secure: isSecure,
       maxAge: 60 * 60 * 24,
     });
 
