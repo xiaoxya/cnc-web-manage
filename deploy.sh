@@ -282,7 +282,15 @@ deploy_app() {
             log_info "非交互式模式，更新现有目录..."
             cd "$APP_DIR"
             git fetch origin main
+            # 备份 .env（git reset 会清除它）
+            if [[ -f ".env" ]]; then
+                cp .env .env.backup
+            fi
             git reset --hard origin/main
+            # 恢复 .env
+            if [[ -f ".env.backup" ]]; then
+                mv .env.backup .env
+            fi
         fi
     else
         git clone --depth=1 "$REPO_URL" "$APP_DIR"
