@@ -167,43 +167,77 @@ setup_database() {
         MYSQL_CMD="mysql -u root"
     elif sudo mysql -u root -e "SELECT 1" &>/dev/null 2>&1; then
         MYSQL_CMD="sudo mysql -u root"
-    else
-        log_error "无法连接到 MySQL root，请手动执行以下 SQL："
-        log_info "  sudo mysql <<EOF"
-        log_info "  CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-        log_info "  CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
-        log_info "  GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
-        log_info "  FLUSH PRIVILEGES;"
-        log_info "  EOF"
-        return 1
     fi
 
-    # 检查并处理已存在的数据库
-    DB_EXISTS=false
-    if ${MYSQL_CMD} -e "USE ${DB_NAME};" &>/dev/null 2>&1; then
-        DB_EXISTS=true
-        log_warn "数据库 ${DB_NAME} 已存在"
-        if [[ -t 0 ]]; then
-            read -p "是否删除并重建？(y/N): " -r RECREATE
-            if [[ $RECREATE =~ ^[Yy]$ ]]; then
-                ${MYSQL_CMD} -e "DROP DATABASE IF EXISTS ${DB_NAME};"
-                log_info "旧数据库已删除"
-                DB_EXISTS=false
+    # 交互式模式：让用户选择数据库操作
+    if [[ -t 0 ]]; then
+        echo ""
+        log_info "数据库配置向导"
+        echo ""
+        echo "  1) 新建数据库（自动创建 ${DB_NAME} 和用户 ${DB_USER}）"
+        echo "  2) 导入现有数据库（已有数据库，只需创建用户并授权）"
+        echo ""
+        read -p "请选择 (1/2): " -r DB_CHOICE
+
+        if [[ $DB_CHOICE =~ ^[12]$ ]]; then
+            if [[ $DB_CHOICE == "1" ]]; then
+                # 需要 root 权限来创建数据库
+                if [[ -z "$MYSQL_CMD" ]]; then
+                    log_error "无法连接到 MySQL root，请手动执行以下 SQL："
+                    log_info "  sudo mysql <<EOF"
+                    log_info "  CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+                    log_info "  CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
+                    log_info "  GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
+                    log_info "  FLUSH PRIVILEGES;"
+                    log_info "  EOF"
+                    return 1
+                fi
+
+                # 检查数据库是否已存在
+                if ${MYSQL_CMD} -e "USE ${DB_NAME};" &>/dev/null 2>&1; then
+                    log_warn "数据库 ${DB_NAME} 已存在"
+                    read -p "是否删除并重建？(y/N): " -r RECREATE
+                    if [[ $RECREATE =~ ^[Yy]$ ]]; then
+                        ${MYSQL_CMD} -e "DROP DATABASE IF EXISTS ${DB_NAME};"
+                        log_info "旧数据库已删除"
+                    else
+                        log_info "保留现有数据库"
+                    fi
+                fi
+
+                # 创建数据库
+                ${MYSQL_CMD} -e "CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+                log_info "数据库 ${DB_NAME} 创建完成"
             else
-                log_info "保留现有数据库，跳过重建"
+                log_info "使用现有数据库 ${DB_NAME}"
             fi
         else
-            log_info "非交互式模式，保留现有数据库，跳过重建"
+            log_error "无效选择"
+            return 1
+        fi
+    else
+        # 非交互式模式：尝试自动创建，失败则提示手动操作
+        if [[ -z "$MYSQL_CMD" ]]; then
+            log_error "无法连接到 MySQL root，请手动执行以下 SQL："
+            log_info "  sudo mysql <<EOF"
+            log_info "  CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+            log_info "  CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
+            log_info "  GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
+            log_info "  FLUSH PRIVILEGES;"
+            log_info "  EOF"
+            return 1
+        fi
+
+        # 检查数据库是否已存在
+        if ${MYSQL_CMD} -e "USE ${DB_NAME};" &>/dev/null 2>&1; then
+            log_info "数据库 ${DB_NAME} 已存在，使用现有数据库"
+        else
+            ${MYSQL_CMD} -e "CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+            log_info "数据库 ${DB_NAME} 创建完成"
         fi
     fi
 
-    # 创建数据库
-    if ! $DB_EXISTS; then
-        ${MYSQL_CMD} -e "CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-        log_info "数据库 ${DB_NAME} 创建完成"
-    fi
-
-    # 先删后建，确保密码是最新的（解决 CREATE IF NOT EXISTS 不更新密码的问题）
+    # 创建/更新用户（无论新建还是导入都需要这一步）
     ${MYSQL_CMD} <<EOF
 DROP USER IF EXISTS '${DB_USER}'@'localhost';
 CREATE USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
