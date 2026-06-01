@@ -7,7 +7,7 @@ import type { RequestHandler } from "./$types";
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
   try {
-    const formData = await request.formData();
+    const body = await request.json();
     const username = formData.get("username") as string;
     const password = formData.get("password") as string;
 
