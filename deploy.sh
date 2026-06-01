@@ -237,10 +237,15 @@ deploy_app() {
     git clone --depth=1 "$REPO_URL" "$APP_DIR"
     cd "$APP_DIR"
 
+    # ── 全量安装（后续 build/migrate/seed 都需要 devDependencies）──
     log_step "安装 Node.js 依赖..."
-    npm install --production 2>&1 | tail -3
+    npm ci 2>&1 | tail -3
 
-    # 生成 .env
+    # ── 生成 Prisma Client ──
+    log_step "生成 Prisma Client..."
+    npx prisma generate
+
+    # ── 生成 .env ──
     log_step "生成配置文件..."
     cat > .env <<ENVEOF
 DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@localhost:3306/${DB_NAME}"
@@ -250,15 +255,21 @@ PORT=${APP_PORT}
 ENVEOF
     log_info ".env 已生成"
 
-    # 初始化数据库
+    # ── 数据库迁移 ──
     log_step "执行数据库迁移..."
-    npx prisma migrate deploy 2>&1 | tail -3
+    npx prisma db push
+
+    # ── 种子数据 ──
     log_step "导入种子数据..."
     npx prisma db seed
 
-    # 构建
+    # ── 构建（vite/sveltekit 现在已安装）──
     log_step "构建生产版本..."
     npm run build 2>&1 | tail -3
+
+    # ── 构建完再删 devDependencies，减体积但不影响运行时 ──
+    log_step "清理开发依赖..."
+    npm prune --production
 
     log_info "项目构建完成"
 }
