@@ -6,10 +6,22 @@ export async function generateToolCode(
   tx?: Prisma.TransactionClient
 ): Promise<string> {
   const client = tx || prisma;
-  const category = await client.toolCategory.update({
+
+  const category = await client.toolCategory.findUnique({
     where: { id: categoryId },
-    data: { counter: { increment: 1 } },
   });
-  const padded = String(category.counter).padStart(4, "0");
+
+  if (!category) {
+    throw new Error("分类不存在");
+  }
+
+  const newCounter = category.counter + 1;
+
+  await client.toolCategory.update({
+    where: { id: categoryId },
+    data: { counter: newCounter },
+  });
+
+  const padded = String(newCounter).padStart(4, "0");
   return category.code + "-" + padded;
 }
