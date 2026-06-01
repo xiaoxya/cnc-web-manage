@@ -183,11 +183,17 @@ setup_database() {
     if ${MYSQL_CMD} -e "USE ${DB_NAME};" &>/dev/null 2>&1; then
         DB_EXISTS=true
         log_warn "数据库 ${DB_NAME} 已存在"
-        read -p "是否删除并重建？(y/N): " -r RECREATE
-        if [[ $RECREATE =~ ^[Yy]$ ]]; then
-            ${MYSQL_CMD} -e "DROP DATABASE IF EXISTS ${DB_NAME};"
-            log_info "旧数据库已删除"
-            DB_EXISTS=false
+        if [[ -t 0 ]]; then
+            read -p "是否删除并重建？(y/N): " -r RECREATE
+            if [[ $RECREATE =~ ^[Yy]$ ]]; then
+                ${MYSQL_CMD} -e "DROP DATABASE IF EXISTS ${DB_NAME};"
+                log_info "旧数据库已删除"
+                DB_EXISTS=false
+            else
+                log_info "保留现有数据库，跳过重建"
+            fi
+        else
+            log_info "非交互式模式，保留现有数据库，跳过重建"
         fi
     fi
 
@@ -225,12 +231,16 @@ deploy_app() {
 
     if [[ -d "$APP_DIR" ]]; then
         log_warn "目录 ${APP_DIR} 已存在"
-        read -p "是否覆盖？(y/N): " -r OVERWRITE
-        if [[ $OVERWRITE =~ ^[Yy]$ ]]; then
-            rm -rf "$APP_DIR"
+        if [[ -t 0 ]]; then
+            read -p "是否覆盖？(y/N): " -r OVERWRITE
+            if [[ $OVERWRITE =~ ^[Yy]$ ]]; then
+                rm -rf "$APP_DIR"
+            else
+                log_error "部署取消"
+                exit 1
+            fi
         else
-            log_error "部署取消"
-            exit 1
+            log_info "非交互式模式，跳过覆盖，使用现有目录"
         fi
     fi
 
@@ -314,7 +324,12 @@ setup_pm2() {
 setup_nginx() {
     log_step "配置 Nginx 反向代理..."
 
-    read -p "请输入域名（无域名直接回车使用 IP）: " DOMAIN
+    if [[ -t 0 ]]; then
+        read -p "请输入域名（无域名直接回车使用 IP）: " DOMAIN
+    else
+        log_info "非交互式模式，使用 IP 访问"
+        DOMAIN=""
+    fi
 
     if [[ -z "$DOMAIN" ]]; then
         SERVER_NAME="_;"
@@ -428,7 +443,11 @@ setup_ssl() {
         return
     fi
 
-    read -p "是否配置 Let's Encrypt SSL 证书？(y/N): " -r SSL
+    if [[ -t 0 ]]; then
+        read -p "是否配置 Let's Encrypt SSL 证书？(y/N): " -r SSL
+    else
+        SSL=""
+    fi
     if [[ ! $SSL =~ ^[Yy]$ ]]; then
         log_info "跳过 SSL"
         return
