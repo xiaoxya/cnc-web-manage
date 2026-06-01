@@ -137,19 +137,9 @@ install_mariadb() {
     if [[ $OS_FAMILY == "debian" ]]; then
         apt-get install -y -qq mariadb-server 2>&1 | tail -1
         systemctl enable mariadb --now
-        # wait for MariaDB to be ready
-        for i in $(seq 1 30); do
-            mysqladmin ping -u root 2>/dev/null && break
-            sleep 1
-        done
     else
         $PKG_MANAGER install -y -q mariadb-server 2>&1 | tail -1
         systemctl enable mariadb --now
-        # wait for MariaDB to be ready
-        for i in $(seq 1 30); do
-            mysqladmin ping -u root 2>/dev/null && break
-            sleep 1
-        done
     fi
 
     log_info "MariaDB 安装完成"
@@ -161,33 +151,67 @@ install_mariadb() {
 setup_database() {
     log_step "配置数据库..."
 
-    # 生成随机密码
-    DB_PASS=$(openssl rand -base64 16 2>/dev/null || head -c 16 /dev/urandom | base64 | tr -d '\n')
+    # 生成随机密码（URL 安全 + 正确去除换行）
+    DB_PASS=$(openssl rand -base64 18 2>/dev/null | tr '+/' '-_' | tr -d '=\n' || {
+        head -c 18 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n'
+    })
     DB_NAME="cnc_manage"
     DB_USER="cnc_user"
-    JWT_SECRET=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64 | tr -d '\n')
+    JWT_SECRET=$(openssl rand -base64 32 2>/dev/null | tr '+/' '-_' | tr -d '=\n' || {
+        head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n'
+    })
 
-    # 检查数据库是否已存在
-    if mysql -u root -e "USE ${DB_NAME};" 2>/dev/null; then
-        log_warn "数据库 ${DB_NAME} 已存在，跳过创建"
+    # 探测 root 连接方式
+    MYSQL_CMD=""
+    if mysql -u root -e "SELECT 1" &>/dev/null; then
+        MYSQL_CMD="mysql -u root"
+    elif sudo mysql -u root -e "SELECT 1" &>/dev/null 2>&1; then
+        MYSQL_CMD="sudo mysql -u root"
+    else
+        log_error "无法连接到 MySQL root，请手动执行以下 SQL："
+        log_info "  sudo mysql <<EOF"
+        log_info "  CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+        log_info "  CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
+        log_info "  GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';"
+        log_info "  FLUSH PRIVILEGES;"
+        log_info "  EOF"
+        return 1
+    fi
+
+    # 检查并处理已存在的数据库
+    DB_EXISTS=false
+    if ${MYSQL_CMD} -e "USE ${DB_NAME};" &>/dev/null 2>&1; then
+        DB_EXISTS=true
+        log_warn "数据库 ${DB_NAME} 已存在"
         read -p "是否删除并重建？(y/N): " -r RECREATE
         if [[ $RECREATE =~ ^[Yy]$ ]]; then
-            mysql -u root -e "DROP DATABASE IF EXISTS ${DB_NAME};"
+            ${MYSQL_CMD} -e "DROP DATABASE IF EXISTS ${DB_NAME};"
             log_info "旧数据库已删除"
-        else
-            log_info "保留现有数据库"
-            return
+            DB_EXISTS=false
         fi
     fi
 
-    mysql -u root <<EOF
-CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
+    # 创建数据库
+    if ! $DB_EXISTS; then
+        ${MYSQL_CMD} -e "CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+        log_info "数据库 ${DB_NAME} 创建完成"
+    fi
+
+    # 先删后建，确保密码是最新的（解决 CREATE IF NOT EXISTS 不更新密码的问题）
+    ${MYSQL_CMD} <<EOF
+DROP USER IF EXISTS '${DB_USER}'@'localhost';
+CREATE USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 FLUSH PRIVILEGES;
 EOF
 
-    log_info "数据库创建完成"
+    # 验证用户是否创建成功
+    if ! ${MYSQL_CMD} -e "SELECT 1 FROM mysql.user WHERE User='${DB_USER}'" &>/dev/null; then
+        log_error "数据库用户创建失败！请检查 MySQL root 权限"
+        return 1
+    fi
+
+    log_info "数据库配置完成"
     log_info "  数据库名: ${DB_NAME}"
     log_info "  用户名:   ${DB_USER}"
     log_info "  密码:     ${DB_PASS}"
@@ -230,7 +254,7 @@ ENVEOF
     log_step "执行数据库迁移..."
     npx prisma migrate deploy 2>&1 | tail -3
     log_step "导入种子数据..."
-    npx prisma db seed 2>&1 | tail -3
+    npx prisma db seed
 
     # 构建
     log_step "构建生产版本..."
@@ -250,16 +274,12 @@ setup_pm2() {
     fi
 
     # 停止旧进程（如果存在）
-
-    # create log directory
-    mkdir -p "${APP_DIR}/logs"
     pm2 delete "$APP_NAME" &>/dev/null || true
 
     # 启动
-    pm2 start "$APP_DIR/build/index.js" \
+    PORT="${APP_PORT}" pm2 start build/index.js \
         --name "$APP_NAME" \
         --max-memory-restart 512M \
-        --env-file "$APP_DIR/.env" \
         --log "${APP_DIR}/logs/app.log" \
         --error "${APP_DIR}/logs/error.log"
 
@@ -317,7 +337,7 @@ setup_nginx() {
     cat > "$NGINX_CONF" <<NGINXEOF
 server {
     listen 80;
-    server_name ${SERVER_NAME};
+    server_name ${SERVER_NAME}
 
     client_max_body_size 20M;
     proxy_read_timeout 120s;
