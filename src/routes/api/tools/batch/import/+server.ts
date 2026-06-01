@@ -1,19 +1,22 @@
 import { getTokenFromCookies, verifyToken } from "$lib/server/auth";
 import { prisma } from "$lib/server/db";
+import { apiError, apiSuccess } from "$lib/server/validation";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
 export const POST: RequestHandler = async ({ request, url }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return json({ success: false, message: "未登录" }, { status: 401 });
+  if (!token) return apiError("未登录", 401);
 
   try {
-    verifyToken(token);
+    const payload = verifyToken(token);
+    if (payload.role !== "ADMIN") return apiError("权限不足", 403);
+
     const type = url.searchParams.get("type") || "IN";
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    if (!file) return json({ success: false, message: "请上传文件" }, { status: 400 });
+    if (!file) return apiError("请上传文件", 400);
 
     const arrayBuffer = await file.arrayBuffer();
     const ExcelJS = await import("exceljs");
@@ -21,7 +24,7 @@ export const POST: RequestHandler = async ({ request, url }) => {
     await workbook.xlsx.load(arrayBuffer);
     const worksheet = workbook.worksheets[0];
 
-    if (!worksheet) return json({ success: false, message: "无效的Excel文件" }, { status: 400 });
+    if (!worksheet) return apiError("无效的Excel文件", 400);
 
     interface ImportRow {
       toolCode: string;
@@ -65,9 +68,9 @@ export const POST: RequestHandler = async ({ request, url }) => {
       }
     }
 
-    return json({ success: true, items: resolved });
+    return apiSuccess({ items: resolved });
   } catch (e) {
     console.error("Import error:", e);
-    return json({ success: false, message: "导入失败" }, { status: 500 });
+    return apiError("导入失败");
   }
 };

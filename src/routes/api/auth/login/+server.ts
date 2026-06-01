@@ -2,12 +2,11 @@ import { prisma } from "$lib/server/db";
 import { verifyPassword, signToken } from "$lib/server/auth";
 import { validateBody, apiError, apiSuccess } from "$lib/server/validation";
 import { loginSchema } from "$lib/schemas";
-import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
   try {
-    const body = await request.json();
+    const formData = await request.formData();
     const username = formData.get("username") as string;
     const password = formData.get("password") as string;
 
