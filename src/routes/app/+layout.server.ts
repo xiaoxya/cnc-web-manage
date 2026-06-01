@@ -7,6 +7,7 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
   const token = cookies.get("token");
 
   if (!token) {
+    console.error("[DEBUG] No token found in cookies");
     throw redirect(303, "/login");
   }
 
@@ -18,11 +19,13 @@ export const load: LayoutServerLoad = async ({ cookies }) => {
     });
 
     if (!user || !user.role) {
+      console.error("[DEBUG] User not found or no role");
       throw redirect(303, "/login");
     }
 
     return { user };
-  } catch {
+  } catch (e) {
+    console.error("[DEBUG] verifyToken or prisma error:", e?.message || e);
     cookies.delete("token", { path: "/" });
     throw redirect(303, "/login");
   }
