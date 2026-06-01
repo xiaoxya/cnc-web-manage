@@ -235,13 +235,16 @@ deploy_app() {
             read -p "是否覆盖？(y/N): " -r OVERWRITE
             if [[ $OVERWRITE =~ ^[Yy]$ ]]; then
                 rm -rf "$APP_DIR"
+                git clone --depth=1 "$REPO_URL" "$APP_DIR"
             else
                 log_error "部署取消"
                 exit 1
             fi
         else
-            log_info "非交互式模式，使用现有目录"
+            log_info "非交互式模式，更新现有目录..."
             cd "$APP_DIR"
+            git fetch origin main
+            git reset --hard origin/main
         fi
     else
         git clone --depth=1 "$REPO_URL" "$APP_DIR"
