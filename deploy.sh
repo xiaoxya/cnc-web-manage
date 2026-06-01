@@ -302,7 +302,11 @@ setup_pm2() {
     pm2 delete "$APP_NAME" &>/dev/null || true
 
     # 启动
-    PORT="${APP_PORT}" pm2 start build/index.js \
+    # 加载 .env 环境变量
+    set -a
+    source "${APP_DIR}/.env"
+    set +a
+    pm2 start build/index.js \
         --name "$APP_NAME" \
         --max-memory-restart 512M \
         --log "${APP_DIR}/logs/app.log" \
