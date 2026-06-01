@@ -16,7 +16,7 @@ APP_NAME="cnc-web-manage"
 APP_DIR="/opt/${APP_NAME}"
 APP_PORT="${APP_PORT:-3000}"
 NODE_VERSION="20"
-REPO_URL="https://github.com/xiaoxya/cnc-web-manage.git"
+REPO_URL="https://ghfast.top/https://github.com/xiaoxya/cnc-web-manage.git"
 
 log_info()  { echo -e "${GREEN}[INFO]${NC}  $1"; }
 log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $1"; }
