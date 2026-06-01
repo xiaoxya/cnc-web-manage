@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -euo pipefail
 
 #==============================================================================
@@ -137,9 +137,19 @@ install_mariadb() {
     if [[ $OS_FAMILY == "debian" ]]; then
         apt-get install -y -qq mariadb-server 2>&1 | tail -1
         systemctl enable mariadb --now
+        # wait for MariaDB to be ready
+        for i in $(seq 1 30); do
+            mysqladmin ping -u root 2>/dev/null && break
+            sleep 1
+        done
     else
         $PKG_MANAGER install -y -q mariadb-server 2>&1 | tail -1
         systemctl enable mariadb --now
+        # wait for MariaDB to be ready
+        for i in $(seq 1 30); do
+            mysqladmin ping -u root 2>/dev/null && break
+            sleep 1
+        done
     fi
 
     log_info "MariaDB 安装完成"
@@ -158,7 +168,7 @@ setup_database() {
     JWT_SECRET=$(openssl rand -base64 32 2>/dev/null || head -c 32 /dev/urandom | base64 | tr -d '\n')
 
     # 检查数据库是否已存在
-    if mysql -u root -e "USE ${DB_NAME};" &>/dev/null 2>&1; then
+    if mysql -u root -e "USE ${DB_NAME};" 2>/dev/null; then
         log_warn "数据库 ${DB_NAME} 已存在，跳过创建"
         read -p "是否删除并重建？(y/N): " -r RECREATE
         if [[ $RECREATE =~ ^[Yy]$ ]]; then
@@ -240,12 +250,16 @@ setup_pm2() {
     fi
 
     # 停止旧进程（如果存在）
+
+    # create log directory
+    mkdir -p "${APP_DIR}/logs"
     pm2 delete "$APP_NAME" &>/dev/null || true
 
     # 启动
-    PORT="${APP_PORT}" pm2 start build/index.js \
+    pm2 start "$APP_DIR/build/index.js" \
         --name "$APP_NAME" \
         --max-memory-restart 512M \
+        --env-file "$APP_DIR/.env" \
         --log "${APP_DIR}/logs/app.log" \
         --error "${APP_DIR}/logs/error.log"
 
@@ -303,7 +317,7 @@ setup_nginx() {
     cat > "$NGINX_CONF" <<NGINXEOF
 server {
     listen 80;
-    server_name ${SERVER_NAME}
+    server_name ${SERVER_NAME};
 
     client_max_body_size 20M;
     proxy_read_timeout 120s;
