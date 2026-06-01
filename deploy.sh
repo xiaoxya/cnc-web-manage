@@ -161,12 +161,16 @@ setup_database() {
         head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n'
     })
 
-    # 探测 root 连接方式
+    # 探测 root 连接方式（MariaDB 可能需要 --skip-ssl）
     MYSQL_CMD=""
     if mysql -u root -e "SELECT 1" &>/dev/null; then
         MYSQL_CMD="mysql -u root"
     elif sudo mysql -u root -e "SELECT 1" &>/dev/null 2>&1; then
         MYSQL_CMD="sudo mysql -u root"
+    elif sudo mysql --skip-ssl -u root -e "SELECT 1" &>/dev/null 2>&1; then
+        MYSQL_CMD="sudo mysql --skip-ssl -u root"
+    elif sudo mysql -h 127.0.0.1 -P 3306 -u root -e "SELECT 1" &>/dev/null 2>&1; then
+        MYSQL_CMD="sudo mysql -h 127.0.0.1 -P 3306 -u root"
     fi
 
     # 交互式模式：让用户选择数据库操作
