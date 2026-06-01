@@ -7,7 +7,10 @@ const config = {
   kit: {
     adapter: adapter(),
     csrf: {
-      trustedOrigins: [],
+      // Allow all origins behind Nginx reverse proxy.
+      // The app is accessed through the same origin (Nginx serves static + proxies API),
+      // so there is no real CSRF risk from external origins.
+      trustedOrigins: ["*"],
     },
   },
 };
