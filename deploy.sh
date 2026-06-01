@@ -240,12 +240,13 @@ deploy_app() {
                 exit 1
             fi
         else
-            log_info "非交互式模式，跳过覆盖，使用现有目录"
+            log_info "非交互式模式，使用现有目录"
+            cd "$APP_DIR"
         fi
+    else
+        git clone --depth=1 "$REPO_URL" "$APP_DIR"
+        cd "$APP_DIR"
     fi
-
-    git clone --depth=1 "$REPO_URL" "$APP_DIR"
-    cd "$APP_DIR"
 
     # ── 全量安装（后续 build/migrate/seed 都需要 devDependencies）──
     log_step "安装 Node.js 依赖..."
