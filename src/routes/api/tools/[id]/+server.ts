@@ -42,7 +42,7 @@ export const GET: RequestHandler = async ({ request, params }) => {
 
 export const PUT: RequestHandler = async ({ request, params }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return apiError("未登录", 401);
+  if (!token) return apiError("not logged in", 401);
   try {
     verifyToken(token);
     const id = parseInt(params.id ?? "0");
@@ -60,20 +60,47 @@ export const PUT: RequestHandler = async ({ request, params }) => {
     return apiSuccess({ tool: tool as unknown as Record<string, unknown> });
   } catch (e) {
     console.error("PUT tool error:", e);
-    return apiError("更新失败");
+    return apiError("update failed");
   }
 };
 
 export const DELETE: RequestHandler = async ({ request, params }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return apiError("未登录", 401);
+  if (!token) return apiError("not logged in", 401);
   try {
     const payload = verifyToken(token);
-    if (payload.role !== "ADMIN") return apiError("权限不足", 403);
+    if (payload.role !== "ADMIN") return apiError("permission denied", 403);
     await prisma.tool.update({ where: { id: parseInt(params.id ?? "0") }, data: { status: "SCRAPPED" } });
     return apiSuccess({});
   } catch (e) {
     console.error("DELETE tool error:", e);
-    return apiError("操作失败");
+    return apiError("operation failed");
+  }
+};
+
+// PATCH: Re-enable a scrapped tool (set status back to IN_STOCK)
+export const PATCH: RequestHandler = async ({ request, params }) => {
+  const token = getTokenFromCookies(request.headers.get("cookie"));
+  if (!token) return apiError("not logged in", 401);
+  try {
+    const payload = verifyToken(token);
+    if (payload.role !== "ADMIN") return apiError("permission denied", 403);
+
+    const id = parseInt(params.id ?? "0");
+    const tool = await prisma.tool.findUnique({ where: { id } });
+    if (!tool) return apiError("tool not found", 404);
+    if (tool.status !== "SCRAPPED") return apiError("tool is not scrapped", 400);
+
+    // Re-enable: set status to IN_STOCK, quantity to 0
+    const updated = await prisma.tool.update({
+      where: { id },
+      data: { status: "IN_STOCK", quantity: 1 },
+      include: { category: true, location: true },
+    });
+
+    return apiSuccess({ tool: updated as unknown as Record<string, unknown> });
+  } catch (e) {
+    console.error("PATCH tool error:", e);
+    return apiError("operation failed");
   }
 };

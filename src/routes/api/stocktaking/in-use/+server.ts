@@ -49,7 +49,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
         toolCode: tool.toolCode,
         name: tool.name,
         specification: tool.specification,
-        quantity: tool.quantity,
+        quantity: 1,
         unit: tool.unit,
         categoryName: tool.category?.name || '',
         factoryId: factory?.id || factoryId,

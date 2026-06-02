@@ -20,6 +20,8 @@
     ]);
     if (vendorsRes.ok) vendors = await vendorsRes.json();
     if (res.ok) record = await res.json();
+    // Pre-fill repair vendor from record
+    if (record?.repairVendor) completeForm.repairVendor = record.repairVendor;
     loading = false;
   });
 
@@ -64,6 +66,11 @@
         </div>
         <div class="flex justify-between"><span class="text-gray-500">报修时间</span><span>{fmt(record.createdAt)}</span></div>
         <div class="flex justify-between"><span class="text-gray-500">报修人</span><span>{record.reporter?.displayName || "—"}</span></div>
+        {#if record.previousStatus}
+          <div class="flex justify-between"><span class="text-gray-500">维修前状态</span>
+            <span>{record.previousStatus === "IN_USE" ? "使用中" : "在库"}{record.previousFactoryInfo ? " - " + record.previousFactoryInfo : ""}</span>
+          </div>
+        {/if}
         {#if record.completedAt}
           <div class="flex justify-between"><span class="text-gray-500">完成时间</span><span>{fmt(record.completedAt)}</span></div>
         {/if}

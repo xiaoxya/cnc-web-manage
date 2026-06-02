@@ -10,7 +10,7 @@ export const GET: RequestHandler = async ({ request, params }) => {
     verifyToken(token);
     const record = await prisma.maintenanceRecord.findUnique({
       where: { id: parseInt(params.id ?? "0") },
-      include: { tool: { select: { toolCode: true, name: true } }, reporter: { select: { displayName: true } } },
+      include: { tool: { select: { toolCode: true, name: true, status: true } }, reporter: { select: { displayName: true } } },
     });
     return json(record);
   } catch { return json(null); }
@@ -18,13 +18,19 @@ export const GET: RequestHandler = async ({ request, params }) => {
 
 export const PUT: RequestHandler = async ({ request, params }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return json({ success: false, message: "未登录" }, { status: 401 });
+  if (!token) return json({ success: false, message: "not logged in" }, { status: 401 });
   try {
     const payload = verifyToken(token);
     const id = parseInt(params.id ?? "0");
     const body = await request.json();
 
     const record = await prisma.$transaction(async (tx) => {
+      const maintRecord = await tx.maintenanceRecord.findUnique({ where: { id } });
+      if (!maintRecord) throw new Error("Record not found");
+
+      const tool = await tx.tool.findUnique({ where: { id: maintRecord.toolId } });
+      if (!tool) throw new Error("Tool not found");
+
       const updated = await tx.maintenanceRecord.update({
         where: { id },
         data: {
@@ -35,9 +41,13 @@ export const PUT: RequestHandler = async ({ request, params }) => {
           repairVendor: body.repairVendor || null,
         },
       });
+
       await tx.tool.update({
-        where: { id: updated.toolId },
-        data: { status: "IN_STOCK" },
+        where: { id: maintRecord.toolId },
+        data: {
+          status: "IN_STOCK",
+          quantity: tool.quantity === 0 ? 1 : tool.quantity,
+        },
       });
       return updated;
     });
@@ -45,6 +55,6 @@ export const PUT: RequestHandler = async ({ request, params }) => {
     return json({ success: true, record });
   } catch (e) {
     console.error(e);
-    return json({ success: false, message: "操作失败" }, { status: 500 });
+    return json({ success: false, message: "operation failed" }, { status: 500 });
   }
 };

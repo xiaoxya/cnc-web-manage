@@ -8,6 +8,7 @@
     scrappedToolCount: 0,
     recentTransactions: [],
     recentMaintenance: [],
+    recentScrapped: [],
     factoryStats: [],
   };
   let loading = true;
@@ -33,22 +34,13 @@
 {#if loading}
   <div class="text-center py-12 text-gray-400">加载中...</div>
 {:else}
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
     <div class="card">
       <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-2xl">🔡</div>
+        <div class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-2xl">🔧</div>
         <div>
           <p class="text-sm text-gray-500">刀具总数</p>
           <p class="text-3xl font-bold">{stats.totalTools}</p>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center text-2xl">⚠️</div>
-        <div>
-          <p class="text-sm text-gray-500">低库存预警</p>
-          <p class="text-3xl font-bold text-yellow-600">{stats.lowStockCount}</p>
         </div>
       </div>
     </div>
@@ -88,7 +80,7 @@
   </div>
   {/if}
 
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="card">
       <h3 class="text-lg font-semibold mb-4">最近出入库</h3>
       {#if stats.recentTransactions.length === 0}
@@ -98,7 +90,7 @@
           {#each stats.recentTransactions as tx}
             <div class="flex items-center justify-between text-sm">
               <div>
-                <span class="font-medium">{tx.tool?.name || "—"}</span>
+                <span class="font-medium">{tx.tool?.name || "-"}</span>
                 <span class="text-gray-400 ml-2">({tx.tool?.toolCode})</span>
               </div>
               <div class="flex items-center gap-3">
@@ -123,7 +115,7 @@
           {#each stats.recentMaintenance as m}
             <div class="flex items-center justify-between text-sm">
               <div>
-                <span class="font-medium">{m.tool?.name || "—"}</span>
+                <span class="font-medium">{m.tool?.name || "-"}</span>
                 <span class="text-gray-400 ml-2">({m.tool?.toolCode})</span>
               </div>
               <div class="flex items-center gap-3">
@@ -131,6 +123,28 @@
                   {maintMap[m.status] || m.status}
                 </span>
                 <span class="text-gray-400 text-xs">{formatDate(m.createdAt)}</span>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </div>
+
+    <div class="card">
+      <h3 class="text-lg font-semibold mb-4">报废记录</h3>
+      {#if stats.recentScrapped.length === 0}
+        <p class="text-gray-400 text-sm">暂无报废记录</p>
+      {:else}
+        <div class="space-y-3">
+          {#each stats.recentScrapped as s}
+            <div class="flex items-center justify-between text-sm">
+              <div>
+                <span class="font-medium">{s.name || "-"}</span>
+                <span class="text-gray-400 ml-2">({s.toolCode})</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="badge bg-red-100 text-red-700">已报废</span>
+                <span class="text-gray-400 text-xs">{formatDate(s.updatedAt)}</span>
               </div>
             </div>
           {/each}

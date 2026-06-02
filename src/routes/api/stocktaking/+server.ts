@@ -73,7 +73,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     } else {
       tools = await prisma.tool.findMany({
         where: { status: { not: "SCRAPPED" } },
-        select: { id: true, toolCode: true, name: true, specification: true, quantity: true, categoryId: true },
+        select: { id: true, toolCode: true, name: true, specification: true, quantity: true, categoryId: true, status: true },
       });
     }
 
@@ -86,7 +86,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         items: {
           create: tools.map((t) => ({
             toolId: t.id,
-            expectedQuantity: t.quantity,
+            expectedQuantity: t.status === "IN_USE" ? 1 : t.quantity,
             actualQuantity: t.quantity,
             difference: 0,
           })),

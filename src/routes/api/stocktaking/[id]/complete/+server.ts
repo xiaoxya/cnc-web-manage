@@ -33,7 +33,7 @@ export const POST: RequestHandler = async ({ request, params }) => {
             data: {
               stocktakingId: id,
               toolId: item.toolId,
-              expectedQuantity: 0,
+              expectedQuantity: 1,
               actualQuantity: item.actualQuantity,
               difference: item.actualQuantity,
               notes: item.notes ?? null,

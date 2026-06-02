@@ -31,7 +31,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return apiError("未登录", 401);
+  if (!token) return apiError("not logged in", 401);
   try {
     const payload = verifyToken(token);
     const body = await request.json();
@@ -39,11 +39,31 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     const parsed = validateBody(maintenanceSchema, body);
     if (!parsed.success) return apiError(parsed.error, 400);
 
-    // 校验刀具状态：仅在库或使用中可报修
     const tool = await prisma.tool.findUnique({ where: { id: parsed.data.toolId } });
-    if (!tool) return apiError("刀具不存在", 404);
+    if (!tool) return apiError("Tool not found", 404);
     if (tool.status !== "IN_STOCK" && tool.status !== "IN_USE") {
-      return apiError(`该刀具当前状态为"${tool.status}"，无法报修（仅可在库或使用中报修）`, 400);
+      return apiError("Tool status is " + tool.status + ", cannot report maintenance (only IN_STOCK or IN_USE)", 400);
+    }
+
+    // Determine pre-maintenance status info
+    let previousStatus = tool.status;
+    let previousFactoryInfo = "";
+
+    if (tool.status === "IN_USE") {
+      // Look up the factory from the latest OUT transaction
+      try {
+        const latestTxs: Array<{ factoryId: number; factoryCode: string; factoryName: string }> = await prisma.$queryRawUnsafe(
+          `SELECT t.factoryId, f.code as factoryCode, f.name as factoryName
+           FROM tool_transactions t
+           LEFT JOIN factories f ON f.id = t.factoryId
+           WHERE t.toolId = ${tool.id} AND t.type = 'OUT'
+           ORDER BY t.createdAt DESC
+           LIMIT 1`
+        );
+        if (latestTxs.length > 0) {
+          previousFactoryInfo = latestTxs[0].factoryCode + " " + latestTxs[0].factoryName;
+        }
+      } catch {}
     }
 
     const record = await prisma.$transaction(async (tx) => {
@@ -58,6 +78,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
           reporterId: payload.userId,
           notes: parsed.data.notes ?? null,
           repairVendor: (body as Record<string, unknown>).repairVendor as string ?? null,
+          previousStatus,
+          previousFactoryInfo: previousFactoryInfo || null,
         },
         include: { tool: { select: { toolCode: true, name: true } }, reporter: { select: { displayName: true } } },
       });
@@ -66,6 +88,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     return apiSuccess({ record: record as unknown as Record<string, unknown> });
   } catch (e) {
     console.error("POST maintenance error:", e);
-    return apiError("报修失败");
+    return apiError("report failed");
   }
 };

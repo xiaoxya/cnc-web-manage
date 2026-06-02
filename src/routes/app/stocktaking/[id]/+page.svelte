@@ -21,6 +21,9 @@
   let submitModal = false;
   let submittedCount = 0;
   let scanningLock = false;
+  let scannedItems: Record<number, number> = {};
+  let stocktakingItems: any[] = [];
+  let completed = false;
 
   onMount(async () => {
     await loadStocktaking();
@@ -35,6 +38,15 @@
         const st = all.find((s: any) => s.id === parseInt(stocktakingId));
         if (st) {
           stocktaking = st;
+          if (st.status === "COMPLETED") completed = true;
+          const itemsRes = await fetch("/api/stocktaking/" + stocktakingId + "/items");
+          if (itemsRes.ok) {
+            stocktakingItems = await itemsRes.json();
+            for (const si of stocktakingItems) {
+              scannedItems = { ...scannedItems, [si.toolId]: si.actualQuantity };
+              if (si.actualQuantity > 0) submittedCount++;
+            }
+          }
           if (st.factory) factory = st.factory;
         }
       }
@@ -59,7 +71,7 @@
     const found = inUseTools.find(t => t.toolCode === val);
     if (found) {
       scannedTool = found;
-      actualQuantity = found.quantity;
+      actualQuantity = 1;
       scanningLock = false;
       return;
     }
@@ -108,7 +120,8 @@
       const data = await res.json();
       if (data.success) {
         submittedCount++;
-        success = "已记录 " + scannedTool.toolCode + " - " + scannedTool.name + "，实盘 " + actualQuantity + " 把";
+        scannedItems = { ...scannedItems, [scannedTool.id]: actualQuantity };
+        success = "已记录" + scannedTool.toolCode + " - " + scannedTool.name + "，实盘" + actualQuantity + " 把";
         submitModal = false;
         setTimeout(() => { success = ""; resetScan(); }, 1500);
       } else {
@@ -142,6 +155,11 @@
     submitLoading = false;
   }
 
+  function getDiff(tool: any): number {
+    const actual = completed ? (stocktakingItems.find(si => si.toolId === tool.id)?.actualQuantity ?? 0) : (scannedItems[tool.id] ?? 0);
+    return actual - tool.quantity;
+  }
+
   const statusMap: Record<string, string> = { IN_PROGRESS: "进行中", COMPLETED: "已完成" };
   const statusColors: Record<string, string> = { IN_PROGRESS: "bg-blue-100 text-blue-800", COMPLETED: "bg-green-100 text-green-800" };
 </script>
@@ -150,7 +168,7 @@
   <div class="text-center py-12 text-gray-400">加载中...</div>
 {:else if !stocktaking}
   <div class="card text-center py-12">
-    <p class="text-gray-500">盘点单不存在</p>
+    <p class="text-gray-500">盘点鍗曚笉瀛樺湪</p>
   </div>
 {:else}
   <div class="flex items-center justify-between mb-6">
@@ -231,7 +249,7 @@
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="label">实盘数量（把）</label>
+            <label class="label">备注</label>
             <input type="number" class="input" bind:value={actualQuantity} min="0" />
           </div>
           <div>
@@ -266,8 +284,8 @@
               <td class="table-cell font-medium">{tool.name}</td>
               <td class="table-cell text-gray-500">{tool.specification || "-"}</td>
               <td class="table-cell text-right">{tool.quantity}</td>
-              <td class="table-cell text-right font-semibold">{tool.quantity}</td>
-              <td class="table-cell text-right text-gray-500">0</td>
+              <td class="table-cell text-right font-semibold">{completed ? (stocktakingItems.find(si => si.toolId === tool.id)?.actualQuantity ?? 0) : (scannedItems[tool.id] ?? 0)}</td>
+              <td class="table-cell text-right" class:text-red-600={getDiff(tool) !== 0} class:text-gray-500={getDiff(tool) === 0}>{getDiff(tool)}</td>
               <td class="table-cell text-gray-500">-</td>
             </tr>
           {/each}

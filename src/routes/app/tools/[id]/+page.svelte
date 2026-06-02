@@ -12,7 +12,9 @@
   let loading = true;
   let editing = false;
   let showDeleteModal = false;
+  
   let deleteLoading = false;
+  let reEnableLoading = false;
   let error = "";
   let userRole = "";
 
@@ -68,6 +70,19 @@
     else { error = data.message; deleteLoading = false; showDeleteModal = false; }
   }
 
+  async function reEnableTool() {
+    if (!confirm("确定要重新启用已报废刀具 " + tool.toolCode + " - " + tool.name + " 吗？\n启用后状态将变为'在库'，库存重置为 1。")) return;
+    try {
+      const res = await fetch(`/api/tools/${toolId}`, { method: "PATCH" });
+      const data = await res.json();
+      if (data.success) {
+        window.location.reload();
+      } else { alert(data.message || "启用失败"); }
+    } catch (e) {
+      alert("操作失败");
+    }
+  }
+
   const statusMap: Record<string, string> = {
     IN_STOCK: "在库", IN_USE: "使用中", MAINTENANCE: "维修中", SCRAPPED: "已报废"
   };
@@ -104,10 +119,16 @@
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg font-semibold">基本信息</h3>
           <div class="flex gap-2">
-            {#if !editing}
-              <button class="btn-secondary btn-sm" on:click={() => editing = true}>编辑</button>
+            {#if tool.status === "SCRAPPED"}
               {#if userRole === "ADMIN"}
-                <button class="btn-danger btn-sm" on:click={() => showDeleteModal = true}>报废</button>
+                <button class="btn-secondary btn-sm" on:click={reEnableTool}>重新启用</button>
+              {/if}
+            {:else}
+              {#if !editing}
+                <button class="btn-secondary btn-sm" on:click={() => editing = true}>编辑</button>
+                {#if userRole === "ADMIN"}
+                  <button class="btn-danger btn-sm" on:click={() => showDeleteModal = true}>报废</button>
+                {/if}
               {/if}
             {/if}
           </div>
@@ -133,18 +154,40 @@
               <select class="input" bind:value={form.locationId}>
                 <option value={null}>无</option>
                 {#each locations as loc}
-                  <option value={loc.id}>{loc.code}</option>
+                  <option value={loc.id}>{loc.code} - {loc.name}</option>
                 {/each}
               </select>
             </div>
-            <div><label class="label">规格</label><input class="input" bind:value={form.specification} /></div>
-            <div><label class="label">材质</label><input class="input" bind:value={form.material} /></div>
-            <div><label class="label">品牌</label><input class="input" bind:value={form.brand} /></div>
-            <div><label class="label">库存</label><input type="number" class="input" bind:value={form.quantity} /></div>
-            <div><label class="label">预警数</label><input type="number" class="input" bind:value={form.minQuantity} /></div>
-            <div><label class="label">单位</label><input class="input" bind:value={form.unit} /></div>
-            <div><label class="label">单价</label><input type="number" class="input" bind:value={form.price} step="0.01" /></div>
-            <div><label class="label">状态</label>
+            <div>
+              <label class="label">规格型号</label>
+              <input class="input" bind:value={form.specification} />
+            </div>
+            <div>
+              <label class="label">材质</label>
+              <input class="input" bind:value={form.material} />
+            </div>
+            <div>
+              <label class="label">品牌</label>
+              <input class="input" bind:value={form.brand} />
+            </div>
+            <div>
+              <label class="label">库存</label>
+              <input type="number" class="input" bind:value={form.quantity} min="0" />
+            </div>
+            <div>
+              <label class="label">最低预警</label>
+              <input type="number" class="input" bind:value={form.minQuantity} min="0" />
+            </div>
+            <div>
+              <label class="label">单价</label>
+              <input type="number" class="input" bind:value={form.price} min="0" step="0.01" />
+            </div>
+            <div>
+              <label class="label">单位</label>
+              <input class="input" bind:value={form.unit} />
+            </div>
+            <div>
+              <label class="label">状态</label>
               <select class="input" bind:value={form.status}>
                 {#each statusOptions as opt}
                   <option value={opt.value}>{opt.label}</option>
@@ -153,30 +196,41 @@
             </div>
             <div class="md:col-span-2">
               <label class="label">备注</label>
-              <textarea class="input" rows="2" bind:value={form.notes}></textarea>
+              <textarea class="input" bind:value={form.notes} rows="2"></textarea>
             </div>
           </div>
           <div class="flex gap-2 mt-4">
-            <button class="btn-primary btn-sm" on:click={saveEdit}>保存</button>
-            <button class="btn-secondary btn-sm" on:click={() => { editing = false; form = { ...tool }; error = ""; }}>取消</button>
+            <button class="btn-primary" on:click={saveEdit}>保存</button>
+            <button class="btn-secondary" on:click={() => editing = false}>取消</button>
           </div>
         {:else}
           <!-- View mode -->
-          <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            <div><span class="text-gray-500">刀具编码</span><p class="font-mono font-medium">{tool.toolCode}</p></div>
-            <div><span class="text-gray-500">名称</span><p class="font-medium">{tool.name}</p></div>
-            <div><span class="text-gray-500">状态</span><p><span class="badge {statusColors[tool.status]}">{statusMap[tool.status]}</span></p></div>
-            <div><span class="text-gray-500">分类</span><p>{tool.category?.name || "—"}</p></div>
-            <div><span class="text-gray-500">库位</span><p>{tool.location?.code ? `${tool.location.code} - ${tool.location.name}` : "—"}</p></div>
-            <div><span class="text-gray-500">规格型号</span><p>{tool.specification || "—"}</p></div>
-            <div><span class="text-gray-500">材质</span><p>{tool.material || "—"}</p></div>
-            <div><span class="text-gray-500">品牌</span><p>{tool.brand || "—"}</p></div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div class="md:col-span-3">
+              <span class="text-gray-500">编码</span>
+              <p class="font-mono font-semibold text-blue-700">{tool.toolCode}</p>
+            </div>
+            <div>
+              <span class="text-gray-500">名称</span>
+              <p class="font-medium">{tool.name}</p>
+            </div>
+            <div>
+              <span class="text-gray-500">状态</span>
+              <p><span class="badge {statusColors[tool.status]}">{statusMap[tool.status]}</span></p>
+            </div>
+            <div><span class="text-gray-500">分类</span><p>{tool.category?.name || "-"}</p></div>
+            <div><span class="text-gray-500">库位</span><p>{tool.location?.code ? `${tool.location.code} - ${tool.location.name}` : "-"}</p></div>
+            <div><span class="text-gray-500">规格型号</span><p>{tool.specification || "-"}</p></div>
+            <div><span class="text-gray-500">材质</span><p>{tool.material || "-"}</p></div>
+            <div><span class="text-gray-500">品牌</span><p>{tool.brand || "-"}</p></div>
             <div>
               <span class="text-gray-500">库存</span>
-              <p class="{tool.quantity <= tool.minQuantity ? 'text-red-600 font-bold' : ''}">{tool.quantity} {tool.unit}</p>
+              <p class="{tool.status !== 'SCRAPPED' && tool.quantity <= tool.minQuantity ? 'text-red-600 font-bold' : ''}">
+                {tool.status === "SCRAPPED" ? "-" : `${tool.quantity} ${tool.unit}`}
+              </p>
             </div>
-            <div><span class="text-gray-500">最低预警</span><p>{tool.minQuantity} {tool.unit}</p></div>
-            <div><span class="text-gray-500">单价</span><p>{tool.price ? `¥${Number(tool.price).toFixed(2)}` : "—"}</p></div>
+            <div><span class="text-gray-500">最低预警</span><p>{tool.status === "SCRAPPED" ? "-" : `${tool.minQuantity} ${tool.unit}`}</p></div>
+            <div><span class="text-gray-500">单价</span><p>{tool.price ? `¥${Number(tool.price).toFixed(2)}` : "-"}</p></div>
             <div><span class="text-gray-500">单位</span><p>{tool.unit}</p></div>
             {#if tool.notes}
               <div class="md:col-span-3"><span class="text-gray-500">备注</span><p class="text-gray-600">{tool.notes}</p></div>
@@ -186,6 +240,7 @@
       </div>
 
       <!-- Transaction history -->
+      {#if tool.status !== "SCRAPPED"}
       <div class="card mt-6">
         <h3 class="text-lg font-semibold mb-4">出入库记录</h3>
         {#if tool.transactions?.length === 0}
@@ -210,8 +265,8 @@
                       <span class="badge {tx.type === 'IN' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}">{typeMap[tx.type]}</span>
                     </td>
                     <td class="table-cell text-right font-medium">{tx.quantity}</td>
-                    <td class="table-cell">{tx.operator?.displayName || "—"}</td>
-                    <td class="table-cell text-gray-500">{tx.notes || "—"}</td>
+                    <td class="table-cell">{tx.operator?.displayName || "-"}</td>
+                    <td class="table-cell text-gray-500">{tx.notes || "-"}</td>
                   </tr>
                 {/each}
               </tbody>
@@ -219,6 +274,7 @@
           </div>
         {/if}
       </div>
+      {/if}
     </div>
 
     <!-- Maintenance history -->
@@ -242,7 +298,7 @@
                 {#if m.notes}
                   <p class="text-xs text-gray-400 mt-1">备注：{m.notes}</p>
                 {/if}
-                <p class="text-xs text-gray-400 mt-1">报修人：{m.reporter?.displayName || "—"}</p>
+                <p class="text-xs text-gray-400 mt-1">报修人：{m.reporter?.displayName || "-"}</p>
               </div>
             {/each}
           </div>
@@ -251,8 +307,10 @@
     </div>
   </div>
 
-  <!-- Delete modal -->
+  <!-- Delete/Scrap modal -->
   <Modal title="确认报废" bind:show={showDeleteModal} confirmText="确认报废" cancelText="取消" variant="danger" {deleteLoading} on:confirm={deleteTool} on:close={() => showDeleteModal = false}>
     <p>确定要将刀具 <strong>{tool.toolCode} - {tool.name}</strong> 标记为已报废？？</p>
   </Modal>
+
+
 {/if}

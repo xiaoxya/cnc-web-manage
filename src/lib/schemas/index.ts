@@ -15,7 +15,7 @@ export const toolSchema = z.object({
   quantity: z.number().int().min(0, "数量不能为负").default(0),
   minQuantity: z.number().int().min(0).default(1),
   unit: z.string().default("把"),
-  price: z.string().optional().nullable(),
+  price: z.union([z.string(), z.number()]).optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 

@@ -140,6 +140,8 @@ model MaintenanceRecord {
   repairVendor String?
   reporterId   Int
   completedAt  DateTime?
+  previousStatus String?
+  previousFactoryInfo String?
   notes        String?
   createdAt    DateTime @default(now())
 

@@ -264,8 +264,8 @@
               <td class="table-cell">{tool.category?.name || "—"}</td>
               <td class="table-cell text-gray-500">{tool.specification || "—"}</td>
               <td class="table-cell">{tool.location?.code || "—"}</td>
-              <td class="table-cell text-right {getLowStockClass(tool)}">{tool.quantity} {tool.unit}</td>
-              <td class="table-cell text-right text-gray-500">{tool.minQuantity}</td>
+              <td class="table-cell text-right {getLowStockClass(tool)}">{tool.status === "SCRAPPED" ? "-" : tool.quantity + " " + tool.unit}</td>
+              <td class="table-cell text-right text-gray-500">{tool.status === "SCRAPPED" ? "-" : tool.minQuantity}</td>
               <td class="table-cell">
                 <span class="badge {statusColors[tool.status]}">{tool.status === 'IN_USE' && tool.factoryName ? '使用中 - ' + tool.factoryCode : statusMap[tool.status]}</span>
               </td>
@@ -357,7 +357,7 @@
                     <span class="badge bg-purple-100 text-purple-800">{item.factoryCode}</span>
                     <span class="text-sm text-gray-500 ml-1">{item.factoryName}</span>
                   </td>
-                  <td class="table-cell text-right">{item.quantity} 把</td>
+                  <td class="table-cell text-right">1 把</td>
                   <td class="table-cell text-gray-500 text-xs">{new Date(item.lastOutTime).toLocaleDateString("zh-CN")}</td>
                   <td class="table-cell">
                     <a href="/app/tools/{item.id}" class="text-blue-600 hover:text-blue-800 text-sm">详情</a>
