@@ -1,199 +1,288 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { page } from "$app/stores";
-  import { goto } from "$app/navigation";
+  import { onMount } from "svelte";
   import ScanInput from "$lib/components/ScanInput.svelte";
+  import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
 
+  const stocktakingId = $page.url.pathname.split("/").pop();
+
   let stocktaking: any = null;
+  let factory: any = null;
+  let inUseTools: any[] = [];
+  let scannedTool: any = null;
+  let actualQuantity = 0;
+  let notes = "";
   let loading = true;
-  let saving = false;
-  let showCompleteModal = false;
-  let completeLoading = false;
-  let searchTerm = "";
+  let submitLoading = false;
+  let success = "";
   let error = "";
-
-  const locationMap: Record<string, string> = {
-    IN_STOCK: "仓库",
-    IN_USE: "工厂",
-    MAINTENANCE: "维修中",
-    SCRAPPED: "已报废",
-  };
-
-  $: id = $page.params.id;
-  $: filteredItems = stocktaking?.items?.filter((i: any) => {
-    if (!searchTerm) return true;
-    const t = i.tool;
-    return (t?.toolCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            t?.name?.toLowerCase().includes(searchTerm.toLowerCase()));
-  }) || [];
-
-  $: diffCount = stocktaking?.items?.filter((i: any) => i.difference !== 0)?.length || 0;
+  let scanCode = "";
+  let submitModal = false;
+  let submittedCount = 0;
+  let scanningLock = false;
 
   onMount(async () => {
-    const res = await fetch(`/api/stocktaking/${id}`);
-    if (res.ok) stocktaking = await res.json();
-    loading = false;
+    await loadStocktaking();
+    await loadInUseTools();
   });
 
-  async function onScan(val: string) {
-    if (!val) return;
-    searchTerm = val;
-    // Auto-focus the matching item and scroll to it
-    if (filteredItems.length === 1) {
-      setTimeout(() => {
-        const el = document.getElementById(`item-${filteredItems[0].id}`);
-        el?.scrollIntoView({ behavior: "smooth", block: "center" });
-        el?.querySelector("input")?.focus();
-      }, 200);
-    }
-  }
-
-  async function updateItem(item: any, val: number) {
-    item.actualQuantity = val;
-    item.difference = val - item.expectedQuantity;
-    saving = true;
+  async function loadStocktaking() {
     try {
-      await fetch(`/api/stocktaking/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemId: item.id, actualQuantity: val, notes: item.notes }),
-      });
+      const res = await fetch("/api/stocktaking");
+      if (res.ok) {
+        const all = await res.json();
+        const st = all.find((s: any) => s.id === parseInt(stocktakingId));
+        if (st) {
+          stocktaking = st;
+          if (st.factory) factory = st.factory;
+        }
+      }
     } catch {}
-    saving = false;
+    loading = false;
   }
 
-  async function completeStocktaking() {
-    completeLoading = true;
-    const res = await fetch(`/api/stocktaking/${id}/complete`, { method: "POST" });
-    const data = await res.json();
-    if (data.success) {
-      goto("/app/stocktaking");
-    } else { error = "完成盘点失败"; completeLoading = false; showCompleteModal = false; }
+  async function loadInUseTools() {
+    try {
+      const res = await fetch("/api/stocktaking/in-use?factoryId=" + (factory?.id || ""));
+      if (res.ok) inUseTools = await res.json();
+    } catch {}
   }
+
+  async function onScanForTool(val: string) {
+    if (!val || scanningLock) return;
+    scanningLock = true;
+    scannedTool = null;
+    actualQuantity = 0;
+    notes = "";
+
+    const found = inUseTools.find(t => t.toolCode === val);
+    if (found) {
+      scannedTool = found;
+      actualQuantity = found.quantity;
+      scanningLock = false;
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/tools?search=" + encodeURIComponent(val) + "&pageSize=1");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.tools?.length > 0) {
+          scannedTool = data.tools[0];
+          actualQuantity = scannedTool.quantity;
+        }
+      }
+    } catch {}
+    scanningLock = false;
+  }
+
+  function resetScan() {
+    scanCode = "";
+    scannedTool = null;
+    actualQuantity = 0;
+    notes = "";
+  }
+
+  function addToStocktaking() {
+    if (!scannedTool) { error = "请先扫码或输入刀具编码"; return; }
+    submitModal = true;
+  }
+
+  async function confirmSubmit() {
+    if (!scannedTool) return;
+    submitLoading = true;
+    error = "";
+    try {
+      const res = await fetch("/api/stocktaking/" + stocktakingId + "/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          items: [{
+            toolId: scannedTool.id,
+            actualQuantity,
+            notes: notes || null,
+          }],
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        submittedCount++;
+        success = "已记录 " + scannedTool.toolCode + " - " + scannedTool.name + "，实盘 " + actualQuantity + " 把";
+        submitModal = false;
+        setTimeout(() => { success = ""; resetScan(); }, 1500);
+      } else {
+        error = data.message || "提交失败";
+      }
+    } catch {
+      error = "网络错误";
+    }
+    submitLoading = false;
+  }
+
+  async function finishStocktaking() {
+    if (!confirm("确定完成本轮盘点？未录入的刀具将保持原数量。")) return;
+    submitLoading = true;
+    error = "";
+    try {
+      const res = await fetch("/api/stocktaking/" + stocktakingId + "/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: [] }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        window.location.href = "/app/stocktaking";
+      } else {
+        error = data.message || "完成盘点失败";
+      }
+    } catch {
+      error = "网络错误";
+    }
+    submitLoading = false;
+  }
+
+  const statusMap: Record<string, string> = { IN_PROGRESS: "进行中", COMPLETED: "已完成" };
+  const statusColors: Record<string, string> = { IN_PROGRESS: "bg-blue-100 text-blue-800", COMPLETED: "bg-green-100 text-green-800" };
 </script>
-
-<div class="flex items-center gap-4 mb-6">
-  <a href="/app/stocktaking" class="text-gray-400 hover:text-gray-600">&larr; 返回</a>
-  <h2 class="text-2xl font-bold">盘点执行</h2>
-</div>
 
 {#if loading}
   <div class="text-center py-12 text-gray-400">加载中...</div>
 {:else if !stocktaking}
-  <div class="text-center py-12 text-gray-400">盘点记录不存在</div>
+  <div class="card text-center py-12">
+    <p class="text-gray-500">盘点单不存在</p>
+  </div>
 {:else}
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <a href="/app/stocktaking" class="text-gray-400 hover:text-gray-600">&larr; 返回</a>
+      <h2 class="text-2xl font-bold">盘点详情</h2>
+    </div>
+    {#if stocktaking.status === "IN_PROGRESS"}
+      <button class="btn-secondary" on:click={finishStocktaking} disabled={submitLoading}>
+        完成盘点
+      </button>
+    {:else}
+      <span class="badge bg-green-100 text-green-800">已完成</span>
+    {/if}
+  </div>
+
   <!-- Header info -->
-  <div class="card mb-6">
-    <div class="flex items-center justify-between">
-      <div class="flex gap-6 text-sm">
-        <div><span class="text-gray-500">盘点单号：</span><span class="font-mono">{stocktaking.stocktakingNo}</span></div>
-        <div><span class="text-gray-500">创建人：</span><span>{stocktaking.operator?.displayName || "—"}</span></div>
-        <div><span class="text-gray-500">道具总数：</span><span>{stocktaking.items?.length || 0}</span></div>
-        <div><span class="text-gray-500">差异项：</span><span class="{diffCount > 0 ? 'text-red-600 font-semibold' : 'text-green-600'}">{diffCount}</span></div>
+  <div class="mb-6 card">
+    <div class="flex items-center gap-4 flex-wrap">
+      <div>
+        <p class="text-sm text-gray-500">盘点单号</p>
+        <p class="font-mono font-semibold">{stocktaking.stocktakingNo}</p>
       </div>
-      {#if stocktaking.status === "IN_PROGRESS"}
-        <button class="btn-success" on:click={() => showCompleteModal = true}>完成盘点</button>
-      {:else}
-        <span class="badge bg-green-100 text-green-800">已完成</span>
-      {/if}
+      <div class="border-l pl-4">
+        <p class="text-sm text-gray-500">工厂</p>
+        <p class="font-semibold">{factory?.code || ""} {factory?.name || ""}</p>
+      </div>
+      <div class="border-l pl-4">
+        <p class="text-sm text-gray-500">状态</p>
+        <span class="badge {statusColors[stocktaking.status]}">{statusMap[stocktaking.status]}</span>
+      </div>
+      <div class="border-l pl-4">
+        <p class="text-sm text-gray-500">已录入</p>
+        <p class="font-semibold text-blue-600">{submittedCount} / {inUseTools.length}</p>
+      </div>
     </div>
   </div>
 
-  <!-- Search/scan -->
   {#if stocktaking.status === "IN_PROGRESS"}
+    <!-- Scan area -->
     <div class="card mb-6">
-      <label class="label">扫码定位刀具</label>
-      <ScanInput bind:value={searchTerm} placeholder="扫描刀具编码快速定位..." on:submit={(e) => onScan(e.detail)} />
+      <h3 class="text-lg font-semibold mb-4">扫码盘点</h3>
+
+      {#if error}
+        <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-3">{error}</div>
+      {/if}
+      {#if success}
+        <div class="bg-green-50 text-green-600 text-sm px-4 py-2 rounded-lg mb-3">{success}</div>
+      {/if}
+
+      <div class="flex gap-3 mb-4">
+        <div class="flex-1">
+          <label class="label">刀具编码</label>
+          <ScanInput bind:value={scanCode} placeholder="扫码或输入刀具编码" on:submit={(e) => { onScanForTool(e.detail); }} />
+        </div>
+        <div class="flex items-end">
+          <button class="btn-primary btn-sm" on:click={addToStocktaking} disabled={!scannedTool}>录入</button>
+        </div>
+      </div>
+
+      {#if scannedTool}
+        <div class="bg-blue-50 text-blue-700 text-sm px-4 py-3 rounded-lg mb-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-mono font-bold">{scannedTool.toolCode}</span>
+            <button class="text-xs text-blue-400 hover:text-blue-600" on:click={resetScan}>清除</button>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div><span class="text-gray-500">名称：</span><span class="font-medium">{scannedTool.name}</span></div>
+            <div><span class="text-gray-500">分类：</span><span>{scannedTool.categoryName || ""}</span></div>
+            {#if scannedTool.specification}
+            <div><span class="text-gray-500">规格：</span><span>{scannedTool.specification}</span></div>
+            {/if}
+            {#if scannedTool.factoryName}
+            <div><span class="text-gray-500">工厂：</span><span class="badge bg-purple-100 text-purple-800">{scannedTool.factoryCode} - {scannedTool.factoryName}</span></div>
+            {/if}
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">实盘数量（把）</label>
+            <input type="number" class="input" bind:value={actualQuantity} min="0" />
+          </div>
+          <div>
+            <label class="label">备注</label>
+            <input type="text" class="input" bind:value={notes} placeholder="可选备注" />
+          </div>
+        </div>
+      {/if}
     </div>
   {/if}
 
   <!-- Items table -->
   <div class="card">
-    {#if stocktaking.status === "COMPLETED"}
-      <div class="bg-blue-50 text-blue-700 text-sm px-4 py-3 rounded-lg mb-4">
-        盘点已完成，系统已根据实际数量更新库存。
-        {#if diffCount > 0}
-          <span class="font-semibold">共有 {diffCount} 项差异。</span>
-        {/if}
-        点击 <button class="text-blue-600 underline" on:click={async () => {
-          // Simple CSV export
-          const items = stocktaking.items || [];
-          let csv = "刀具编码,名称,规格,位置,实际数量,差异,备注\n";
-          for (const item of items) {
-            const t = item.tool;
-            csv += `${t?.toolCode || ""},${t?.name || ""},${t?.specification || ""},${locationMap[t?.status || ""] || ""},${item.actualQuantity},${item.difference},${item.notes || ""}\n`;
-          }
-          const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `盘点报告_${stocktaking.stocktakingNo}.csv`;
-          a.click();
-          URL.revokeObjectURL(url);
-        }}>导出报告</button>
-      </div>
-    {/if}
-
+    <h3 class="text-lg font-semibold mb-4">盘点明细</h3>
     <div class="overflow-x-auto">
       <table class="min-w-full divide-y divide-gray-200 text-sm">
         <thead class="bg-gray-50">
           <tr>
-            <th class="table-header">#</th>
             <th class="table-header">刀具编码</th>
             <th class="table-header">名称</th>
             <th class="table-header">规格</th>
-            <th class="table-header">位置</th>
-            <th class="table-header text-right">实际数量</th>
+            <th class="table-header text-right">账面数量</th>
+            <th class="table-header text-right">实盘数量</th>
             <th class="table-header text-right">差异</th>
-            {#if stocktaking.status === "IN_PROGRESS"}
-              <th class="table-header">备注</th>
-            {/if}
+            <th class="table-header">备注</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-200">
-          {#each filteredItems as item, i}
-            <tr id="item-{item.id}" class="hover:bg-gray-50 {item.difference !== 0 ? 'bg-red-50' : ''}">
-              <td class="table-cell text-gray-400">{i + 1}</td>
-              <td class="table-cell font-mono text-blue-600">{item.tool?.toolCode || "—"}</td>
-              <td class="table-cell">{item.tool?.name || "—"}</td>
-              <td class="table-cell text-gray-500">{item.tool?.specification || "—"}</td>
-              <td class="table-cell"><span class="badge {item.tool?.status === 'IN_USE' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}">{locationMap[item.tool?.status || ''] || "—"}</span></td>
-              <td class="table-cell text-right">
-                {#if stocktaking.status === "IN_PROGRESS"}
-                  <input
-                    type="number"
-                    class="input w-20 text-right"
-                    value={item.actualQuantity}
-                    on:change={(e) => updateItem(item, parseInt(e.currentTarget.value) || 0)}
-                    min="0"
-                  />
-                {:else}
-                  {item.actualQuantity}
-                {/if}
-              </td>
-              <td class="table-cell text-right font-medium {item.difference < 0 ? 'text-red-600' : item.difference > 0 ? 'text-green-600' : 'text-gray-500'}">
-                {item.difference > 0 ? "+" : ""}{item.difference}
-              </td>
-              {#if stocktaking.status === "IN_PROGRESS"}
-                <td class="table-cell">
-                  <input class="input" value={item.notes || ""} placeholder="备注" on:change={(e) => { item.notes = e.currentTarget.value; updateItem(item, item.actualQuantity); }} />
-                </td>
-              {/if}
+          {#each inUseTools as tool}
+            <tr class="hover:bg-gray-50">
+              <td class="table-cell font-mono">{tool.toolCode}</td>
+              <td class="table-cell font-medium">{tool.name}</td>
+              <td class="table-cell text-gray-500">{tool.specification || "-"}</td>
+              <td class="table-cell text-right">{tool.quantity}</td>
+              <td class="table-cell text-right font-semibold">{tool.quantity}</td>
+              <td class="table-cell text-right text-gray-500">0</td>
+              <td class="table-cell text-gray-500">-</td>
             </tr>
           {/each}
         </tbody>
       </table>
     </div>
   </div>
-
-  <Modal title="确认完成盘点" bind:show={showCompleteModal} confirmText="完成盘点" variant="primary" on:confirm={completeStocktaking} {completeLoading} on:close={() => showCompleteModal = false}>
-    {#if error}
-      <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-3">{error}</div>
-    {/if}
-    <p>盘点完成后，系统将根据实际数量自动更新库存。</p>
-    {#if diffCount > 0}
-      <p class="text-red-600 font-medium mt-2">共有 {diffCount} 项差异，请确认已核对完毕。</p>
-    {/if}
-  </Modal>
 {/if}
+
+<!-- Confirm Modal -->
+<Modal title="确认录入" bind:show={submitModal} confirmText="确认" on:confirm={confirmSubmit} on:close={() => submitModal = false} {submitLoading}>
+  {#if scannedTool}
+    <p>确认录入以下刀具：</p>
+    <p class="mt-2 font-semibold">{scannedTool.toolCode} - {scannedTool.name}</p>
+    <p class="text-sm text-gray-500 mt-1">实盘数量：<strong>{actualQuantity}</strong> 把</p>
+    {#if notes}<p class="text-sm text-gray-500">备注：{notes}</p>{/if}
+  {/if}
+</Modal>

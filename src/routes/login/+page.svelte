@@ -35,10 +35,14 @@
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-gray-100">
-  <div class="card w-full max-w-md">
-    <div class="text-center mb-8">
-      <h1 class="text-2xl font-bold text-gray-900">CNC 刀具管理系统</h1>
+<svelte:head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+</svelte:head>
+
+<div class="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+  <div class="card w-full max-w-sm">
+    <div class="text-center mb-6">
+      <h1 class="text-xl md:text-2xl font-bold text-gray-900">CNC 刀具管理系统</h1>
       <p class="text-sm text-gray-500 mt-1">请登录以继续</p>
     </div>
 
@@ -57,7 +61,7 @@
         <input id="password" type="password" class="input" bind:value={password} placeholder="请输入密码" required />
       </div>
 
-      <button type="submit" class="btn-primary w-full" disabled={loading}>
+      <button type="submit" class="btn-primary w-full py-3 text-base" disabled={loading}>
         {loading ? "登录中..." : "登 录"}
       </button>
     </form>

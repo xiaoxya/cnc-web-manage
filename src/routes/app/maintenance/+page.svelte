@@ -112,6 +112,8 @@
   }
 
   const statusMap: Record<string, string> = { IN_MAINTENANCE: "维修中", COMPLETED: "已完成" };
+
+  const toolStatusMap: Record<string, string> = { IN_STOCK: '在库', IN_USE: '使用中', MAINTENANCE: '维修中', SCRAPPED: '已报废' };
   const statusColors: Record<string, string> = { IN_MAINTENANCE: "bg-yellow-100 text-yellow-800", COMPLETED: "bg-green-100 text-green-800" };
 
   function fmt(d: string) { return new Date(d).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); }
@@ -367,7 +369,7 @@
     </div>
     {#if scannedTool}
       <div class="bg-blue-50 text-blue-700 text-sm px-3 py-2 rounded-lg">
-        已找到：{scannedTool.toolCode} - {scannedTool.name}（库存：{scannedTool.quantity}）
+        已找到：{scannedTool.toolCode} - {scannedTool.name}（状态：{toolStatusMap[scannedTool.status] || scannedTool.status}）
       </div>
     {/if}
     <div>

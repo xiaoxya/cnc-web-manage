@@ -15,9 +15,12 @@ export const GET: RequestHandler = async ({ request, url }) => {
 
     const factories = await prisma.factory.findMany({ orderBy: { code: "asc" } });
 
-    // Find latest transaction per tool (any type) where factoryId IS NOT NULL
-    let latestTxs: Array<{toolId: number; factoryId: number; latestType: string}> = await prisma.$queryRawUnsafe(
-      `SELECT t.toolId, t.factoryId, t.type as latestType
+    // Find latest transaction per tool where factoryId IS NOT NULL, include createdAt
+    interface LatestTx {
+      toolId: number; factoryId: number; latestType: string; latestCreatedAt: Date;
+    }
+    let latestTxs: LatestTx[] = await prisma.$queryRawUnsafe(
+      `SELECT t.toolId, t.factoryId, t.type as latestType, t.createdAt as latestCreatedAt
        FROM tool_transactions t
        INNER JOIN (
          SELECT toolId, MAX(createdAt) as maxCreatedAt
@@ -28,7 +31,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
        WHERE t.factoryId IS NOT NULL`
     );
 
-    // Only keep tools whose latest transaction is OUT (not returned)
+    // Only keep OUT transactions
     latestTxs = latestTxs.filter(tx => tx.latestType === "OUT");
 
     if (filterFactoryId) {
@@ -77,6 +80,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
         factoryId: factory.id,
         factoryCode: factory.code,
         factoryName: factory.name,
+        lastOutTime: tx.latestCreatedAt,
       });
 
       factoryCounts.set(factory.id, (factoryCounts.get(factory.id) || 0) + 1);

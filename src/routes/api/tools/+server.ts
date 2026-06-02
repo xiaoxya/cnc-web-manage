@@ -44,7 +44,50 @@ export const GET: RequestHandler = async ({ request, url }) => {
       prisma.tool.count({ where }),
     ]);
 
-    return json({ tools, total, page, pageSize });
+    // For IN_USE tools, look up the factory from the latest OUT transaction
+    const inUseToolIds = tools.filter(t => t.status === "IN_USE").map(t => t.id);
+    const factoryMap = new Map<number, { code: string; name: string }>();
+
+    if (inUseToolIds.length > 0) {
+      const latestTxs: Array<{ toolId: number; factoryId: number }> = await prisma.$queryRawUnsafe(
+        `SELECT t.toolId, t.factoryId
+         FROM tool_transactions t
+         INNER JOIN (
+           SELECT toolId, MAX(createdAt) as maxCreatedAt
+           FROM tool_transactions
+           WHERE factoryId IS NOT NULL
+           GROUP BY toolId
+         ) latest ON t.toolId = latest.toolId AND t.createdAt = latest.maxCreatedAt
+         WHERE t.factoryId IS NOT NULL AND t.type = 'OUT' AND t.toolId IN (${inUseToolIds.join(",")})`
+      );
+
+      if (latestTxs.length > 0) {
+        const factoryIds = [...new Set(latestTxs.map(t => t.factoryId))];
+        const factories = await prisma.factory.findMany({
+          where: { id: { in: factoryIds } },
+          select: { id: true, code: true, name: true },
+        });
+        const fMap = new Map(factories.map(f => [f.id, f]));
+        for (const tx of latestTxs) {
+          const f = fMap.get(tx.factoryId);
+          if (f) factoryMap.set(tx.toolId, { code: f.code, name: f.name });
+        }
+      }
+    }
+
+    const enrichedTools = tools.map(t => {
+      const enriched = { ...t, factoryCode: undefined, factoryName: undefined };
+      if (t.status === "IN_USE") {
+        const f = factoryMap.get(t.id);
+        if (f) {
+          enriched.factoryCode = f.code;
+          enriched.factoryName = f.name;
+        }
+      }
+      return enriched;
+    });
+
+    return json({ tools: enrichedTools, total, page, pageSize });
   } catch (e) {
     console.error("GET tools error:", e);
     return json({ tools: [], total: 0 }, { status: 500 });
@@ -81,7 +124,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
             quantity: 1,
             minQuantity: parsed.data.minQuantity,
             unit: parsed.data.unit,
-            price: parsed.data.price ?? null,
+            price: parsed.data.price ? String(parsed.data.price) : null,
             notes: parsed.data.notes ?? null,
           },
           include: { category: true, location: true },

@@ -1,51 +1,24 @@
-
-model RepairVendor {
-  id        Int      @id @default(autoincrement())
-  name      String   @db.VarChar(200)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("repair_vendors")
-}
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-  ADMIN
-  OPERATOR
-}
+model RepairVendor {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-enum ToolStatus {
-  IN_STOCK
-  IN_USE
-  MAINTENANCE
-  SCRAPPED
-}
-
-enum TransactionType {
-  IN
-  OUT
-}
-
-enum MaintenanceStatus {
-  IN_MAINTENANCE
-  COMPLETED
-}
-
-enum StocktakingStatus {
-  IN_PROGRESS
-  COMPLETED
+  @@map("repair_vendors")
 }
 
 model Spec {
   id         Int      @id @default(autoincrement())
-  name       String   @db.VarChar(255)
+  name       String
   categoryId Int?
   category   ToolCategory? @relation(fields: [categoryId], references: [id])
   createdAt  DateTime @default(now())
@@ -59,10 +32,10 @@ model Spec {
 
 model User {
   id           Int       @id @default(autoincrement())
-  username     String    @unique @db.VarChar(50)
-  passwordHash String    @db.VarChar(255)
-  role         UserRole  @default(OPERATOR)
-  displayName  String    @db.VarChar(100)
+  username     String    @unique
+  passwordHash String
+  role         String    @default("OPERATOR")
+  displayName  String
   active       Boolean   @default(true)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -76,9 +49,9 @@ model User {
 
 model ToolCategory {
   id          Int      @id @default(autoincrement())
-  code        String   @unique @db.VarChar(10)
-  name        String   @db.VarChar(100)
-  description String?  @db.VarChar(255)
+  code        String   @unique
+  name        String
+  description String?
   counter     Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -91,9 +64,9 @@ model ToolCategory {
 
 model Location {
   id          Int      @id @default(autoincrement())
-  code        String   @unique @db.VarChar(50)
-  name        String   @db.VarChar(100)
-  description String?  @db.VarChar(255)
+  code        String   @unique
+  name        String
+  description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -103,30 +76,30 @@ model Location {
 }
 
 model Tool {
-  id            Int         @id @default(autoincrement())
-  toolCode      String      @unique @db.VarChar(50)
-  name          String      @db.VarChar(200)
-  specification String?     @db.VarChar(255)
-  specId        Int?
-  material      String?     @db.VarChar(100)
-  brand         String?     @db.VarChar(100)
-  categoryId    Int
-  locationId    Int?
-  quantity      Int         @default(0)
-  minQuantity   Int         @default(1)
-  maintenanceCount Int         @default(0)
-  unit          String      @default("把") @db.VarChar(20)
-  price         Decimal?    @db.Decimal(10, 2)
-  status        ToolStatus  @default(IN_STOCK)
-  notes         String?     @db.Text
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id             Int      @id @default(autoincrement())
+  toolCode       String   @unique
+  name           String
+  specification  String?
+  specId         Int?
+  material       String?
+  brand          String?
+  categoryId     Int
+  locationId     Int?
+  quantity       Int      @default(0)
+  minQuantity    Int      @default(1)
+  maintenanceCount Int    @default(0)
+  unit           String   @default("把")
+  price          String?
+  status         String   @default("IN_STOCK")
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  category      ToolCategory       @relation(fields: [categoryId], references: [id])
-  spec          Spec?              @relation(fields: [specId], references: [id])
-  location      Location?          @relation(fields: [locationId], references: [id])
-  transactions  ToolTransaction[]
-  maintenance   MaintenanceRecord[]
+  category       ToolCategory       @relation(fields: [categoryId], references: [id])
+  spec           Spec?              @relation(fields: [specId], references: [id])
+  location       Location?          @relation(fields: [locationId], references: [id])
+  transactions   ToolTransaction[]
+  maintenance    MaintenanceRecord[]
   stocktakingItems StocktakingItem[]
 
   @@index([categoryId])
@@ -138,15 +111,15 @@ model Tool {
 }
 
 model ToolTransaction {
-  id          Int             @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   toolId      Int
-  type        TransactionType
+  type        String
   quantity    Int
   factoryId   Int?
   operatorId  Int
-  referenceNo String?         @db.VarChar(100)
-  notes       String?         @db.Text
-  createdAt   DateTime        @default(now())
+  referenceNo String?
+  notes       String?
+  createdAt   DateTime @default(now())
 
   tool     Tool @relation(fields: [toolId], references: [id])
   factory  Factory? @relation(fields: [factoryId], references: [id])
@@ -159,16 +132,16 @@ model ToolTransaction {
 }
 
 model MaintenanceRecord {
-  id          Int                @id @default(autoincrement())
-  toolId      Int
-  status      MaintenanceStatus  @default(IN_MAINTENANCE)
-  description String             @db.Text
-  cost        Decimal?           @db.Decimal(10, 2)
-  repairVendor String?           @db.VarChar(200)
-  reporterId  Int
-  completedAt DateTime?
-  notes       String?            @db.Text
-  createdAt   DateTime           @default(now())
+  id           Int      @id @default(autoincrement())
+  toolId       Int
+  status       String   @default("IN_MAINTENANCE")
+  description  String
+  cost         String?
+  repairVendor String?
+  reporterId   Int
+  completedAt  DateTime?
+  notes        String?
+  createdAt    DateTime @default(now())
 
   tool     Tool @relation(fields: [toolId], references: [id])
   reporter User @relation("Reporter", fields: [reporterId], references: [id])
@@ -178,30 +151,31 @@ model MaintenanceRecord {
   @@map("maintenance_records")
 }
 
-
-
 model Factory {
   id          Int      @id @default(autoincrement())
-  name        String   @db.VarChar(200)
-  code        String   @unique @db.VarChar(50)
-  description String?  @db.VarChar(255)
+  name        String
+  code        String   @unique
+  description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   transactions ToolTransaction[]
+  stocktakings Stocktaking[]
 
   @@map("factories")
 }
 
 model Stocktaking {
-  id            Int               @id @default(autoincrement())
-  stocktakingNo String            @unique @db.VarChar(50)
-  status        StocktakingStatus @default(IN_PROGRESS)
+  id            Int      @id @default(autoincrement())
+  stocktakingNo String   @unique
+  factoryId     Int?
+  status        String   @default("IN_PROGRESS")
   operatorId    Int
   completedAt   DateTime?
-  notes         String?           @db.Text
-  createdAt     DateTime          @default(now())
+  notes         String?
+  createdAt     DateTime @default(now())
 
+  factory  Factory?             @relation(fields: [factoryId], references: [id])
   operator User              @relation(fields: [operatorId], references: [id])
   items    StocktakingItem[]
 
@@ -216,7 +190,7 @@ model StocktakingItem {
   expectedQuantity Int
   actualQuantity   Int
   difference       Int
-  notes            String? @db.Text
+  notes            String?
 
   stocktaking Stocktaking @relation(fields: [stocktakingId], references: [id])
   tool        Tool        @relation(fields: [toolId], references: [id])

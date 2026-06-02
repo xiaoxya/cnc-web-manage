@@ -30,7 +30,7 @@ export const PUT: RequestHandler = async ({ request, params }) => {
         data: {
           status: "COMPLETED",
           completedAt: new Date(),
-          cost: body.cost ? parseFloat(body.cost) : null,
+          cost: body.cost ? String(body.cost) : null,
           notes: body.notes || null,
           repairVendor: body.repairVendor || null,
         },

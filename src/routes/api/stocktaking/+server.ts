@@ -14,6 +14,7 @@ export const GET: RequestHandler = async ({ request }) => {
     const stocktakings = await prisma.stocktaking.findMany({
       include: {
         operator: { select: { displayName: true } },
+        factory: true,
         _count: { select: { items: true } },
       },
       orderBy: { createdAt: "desc" },
@@ -26,9 +27,35 @@ export const GET: RequestHandler = async ({ request }) => {
   }
 };
 
+async function getInUseToolsForFactory(factoryId: number): Promise<any[]> {
+  const latestTxs: Array<{toolId: number; factoryId: number; latestType: string}> = await prisma.$queryRawUnsafe(
+    `SELECT t.toolId, t.factoryId, t.type as latestType
+     FROM tool_transactions t
+     INNER JOIN (
+       SELECT toolId, MAX(createdAt) as maxCreatedAt
+       FROM tool_transactions
+       WHERE factoryId = ${factoryId}
+       GROUP BY toolId
+     ) latest ON t.toolId = latest.toolId AND t.createdAt = latest.maxCreatedAt
+     WHERE t.factoryId = ${factoryId}`
+  );
+
+  const outTools = latestTxs.filter(tx => tx.latestType === 'OUT');
+  if (outTools.length === 0) return [];
+
+  const toolIds = outTools.map(t => t.toolId);
+  const tools = await prisma.tool.findMany({
+    where: { id: { in: toolIds }, status: { not: "SCRAPPED" } },
+    select: { id: true, toolCode: true, name: true, specification: true, quantity: true, categoryId: true, status: true },
+  });
+
+  // Filter out tools that are back IN_STOCK (returned to warehouse)
+  return tools.filter(t => t.status !== 'IN_STOCK');
+}
+
 export const POST: RequestHandler = async ({ request, cookies }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
-  if (!token) return apiError("未登录", 401);
+  if (!token) return apiError("not logged in", 401);
   try {
     const payload = verifyToken(token);
     const body = await request.json();
@@ -37,15 +64,23 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     if (!parsed.success) return apiError(parsed.error, 400);
 
     const stocktakingNo = generateStocktakingNo();
+    const factoryId = parsed.data.factoryId ?? null;
 
-    const tools = await prisma.tool.findMany({
-      where: { status: { not: "SCRAPPED" } },
-      select: { id: true, toolCode: true, name: true, specification: true, quantity: true, categoryId: true },
-    });
+    // Only create items for tools that are in use at the selected factory
+    let tools: any[] = [];
+    if (factoryId) {
+      tools = await getInUseToolsForFactory(factoryId);
+    } else {
+      tools = await prisma.tool.findMany({
+        where: { status: { not: "SCRAPPED" } },
+        select: { id: true, toolCode: true, name: true, specification: true, quantity: true, categoryId: true },
+      });
+    }
 
     const stocktaking = await prisma.stocktaking.create({
       data: {
         stocktakingNo,
+        factoryId,
         operatorId: payload.userId,
         notes: parsed.data.notes ?? null,
         items: {
@@ -58,6 +93,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
         },
       },
       include: {
+        factory: true,
         items: {
           include: {
             tool: { select: { toolCode: true, name: true, specification: true, quantity: true } },
@@ -69,6 +105,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     return apiSuccess({ stocktaking: stocktaking as unknown as Record<string, unknown> });
   } catch (e) {
     console.error("POST stocktaking error:", e);
-    return apiError("创建失败");
+    return apiError("create failed: " + (e instanceof Error ? e.message : String(e)));
   }
 };

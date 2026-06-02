@@ -39,6 +39,13 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     const parsed = validateBody(maintenanceSchema, body);
     if (!parsed.success) return apiError(parsed.error, 400);
 
+    // 校验刀具状态：仅在库或使用中可报修
+    const tool = await prisma.tool.findUnique({ where: { id: parsed.data.toolId } });
+    if (!tool) return apiError("刀具不存在", 404);
+    if (tool.status !== "IN_STOCK" && tool.status !== "IN_USE") {
+      return apiError(`该刀具当前状态为"${tool.status}"，无法报修（仅可在库或使用中报修）`, 400);
+    }
+
     const record = await prisma.$transaction(async (tx) => {
       await tx.tool.update({
         where: { id: parsed.data.toolId },

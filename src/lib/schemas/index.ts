@@ -15,7 +15,7 @@ export const toolSchema = z.object({
   quantity: z.number().int().min(0, "数量不能为负").default(0),
   minQuantity: z.number().int().min(0).default(1),
   unit: z.string().default("把"),
-  price: z.number().positive().optional().nullable(),
+  price: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
@@ -60,11 +60,12 @@ export const maintenanceSchema = z.object({
 });
 
 export const maintenanceCompleteSchema = z.object({
-  cost: z.number().positive().optional().nullable(),
+  cost: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 
 export const stocktakingSchema = z.object({
+  factoryId: z.number().int().positive("请选择工厂").optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 

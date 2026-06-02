@@ -63,8 +63,8 @@ async function main() {
     { code: "B-01-02", name: "B货架第1层第2格" },
     { code: "B-02-01", name: "B货架第2层第1格" },
     { code: "C-01-01", name: "C货架第1层第1格" },
-    { code: "WORK-01", name: "1号机床工位" },
-    { code: "WORK-02", name: "2号机床工位" },
+    { code: "WORK-01", name: "1号机床工作位" },
+    { code: "WORK-02", name: "2号机床工作位" },
   ];
 
   for (const loc of locations) {

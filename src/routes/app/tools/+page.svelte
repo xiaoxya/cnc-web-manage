@@ -267,7 +267,7 @@
               <td class="table-cell text-right {getLowStockClass(tool)}">{tool.quantity} {tool.unit}</td>
               <td class="table-cell text-right text-gray-500">{tool.minQuantity}</td>
               <td class="table-cell">
-                <span class="badge {statusColors[tool.status]}">{statusMap[tool.status]}</span>
+                <span class="badge {statusColors[tool.status]}">{tool.status === 'IN_USE' && tool.factoryName ? '使用中 - ' + tool.factoryCode : statusMap[tool.status]}</span>
               </td>
               <td class="table-cell">
                 <a href="/app/tools/{tool.id}" class="text-blue-600 hover:text-blue-800 text-sm">详情</a>

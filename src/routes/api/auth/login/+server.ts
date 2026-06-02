@@ -6,9 +6,18 @@ import type { RequestHandler } from "./$types";
 
 export const POST: RequestHandler = async ({ request, cookies }) => {
   try {
-    const formData = await request.formData();
-    const username = formData.get("username") as string;
-    const password = formData.get("password") as string;
+    let username = "";
+    let password = "";
+    const ct = request.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      const body = await request.json();
+      username = body.username || "";
+      password = body.password || "";
+    } else {
+      const formData = await request.formData();
+      username = formData.get("username") as string;
+      password = formData.get("password") as string;
+    }
 
     const parsed = validateBody(loginSchema, { username, password });
     if (!parsed.success) return apiError(parsed.error, 400);
@@ -28,7 +37,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
     const token = signToken(user);
 
-    // Determine if we should use secure cookie based on X-Forwarded-Proto
     const forwardedProto = request.headers.get("x-forwarded-proto");
     const isSecure = forwardedProto === "https";
 

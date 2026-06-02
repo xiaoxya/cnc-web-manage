@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher, onMount, onDestroy } from "svelte";
+  import { Html5Qrcode } from "html5-qrcode";
 
   const dispatch = createEventDispatcher();
 
@@ -10,9 +11,10 @@
 
   let inputEl: HTMLInputElement;
   let inputTimer: ReturnType<typeof setTimeout> | null = null;
-  let isScanning = false;
+  let cameraScanning = false;
+  let scannerEl: HTMLDivElement;
+  let html5Scanner: Html5Qrcode | null = null;
 
-  // 扫码枪输入检测：连续快速输入（<50ms间隔）视为扫码
   function handleInput(e: Event) {
     const target = e.target as HTMLInputElement;
     value = target.value;
@@ -25,12 +27,52 @@
         clearTimeout(inputTimer);
         inputTimer = null;
       }
-      // 短暂延迟确保值已更新
       setTimeout(() => {
         dispatch("scan", value);
         dispatch("submit", value);
       }, 10);
     }
+  }
+
+  async function startCamera() {
+    try {
+      cameraScanning = true;
+      html5Scanner = new Html5Qrcode("camera-scanner");
+
+      await html5Scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        onScanSuccess,
+        onScanFailure
+      );
+    } catch (err) {
+      console.error("Camera start error:", err);
+      cameraScanning = false;
+      alert("无法启动摄像头，请检查权限设置");
+    }
+  }
+
+  function onScanSuccess(decodedText: string) {
+    value = decodedText;
+    dispatch("input", decodedText);
+    dispatch("scan", decodedText);
+    dispatch("submit", decodedText);
+    stopCamera();
+  }
+
+  function onScanFailure(err: string) {
+    // Ignore - scanning continues
+  }
+
+  async function stopCamera() {
+    if (html5Scanner) {
+      try {
+        await html5Scanner.stop();
+        html5Scanner.clear();
+      } catch {}
+      html5Scanner = null;
+    }
+    cameraScanning = false;
   }
 
   export function focus() {
@@ -50,6 +92,7 @@
 
   onDestroy(() => {
     if (inputTimer) clearTimeout(inputTimer);
+    if (cameraScanning) stopCamera();
   });
 </script>
 
@@ -68,9 +111,38 @@
     type="text"
     {placeholder}
     {disabled}
-    class="input pl-10"
+    class="input pl-10 pr-10"
     value={value}
     on:input={handleInput}
     on:keydown={handleKeydown}
   />
+  <!-- Camera button -->
+  {#if !cameraScanning}
+    <button
+      type="button"
+      on:click={startCamera}
+      class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-blue-600 transition-colors"
+      title="扫码枪扫描"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+        <circle cx="12" cy="13" r="3" />
+      </svg>
+    </button>
+  {:else}
+    <button
+      type="button"
+      on:click={stopCamera}
+      class="absolute inset-y-0 right-0 pr-3 flex items-center text-red-500 hover:text-red-700 transition-colors"
+      title="关闭摄像头"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 6L6 18M6 6l12 12" />
+      </svg>
+    </button>
+  {/if}
 </div>
+
+{#if cameraScanning}
+  <div id="camera-scanner" bind:this={scannerEl} class="mt-2 rounded-lg overflow-hidden border border-gray-200"></div>
+{/if}
