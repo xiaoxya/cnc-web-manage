@@ -68,14 +68,14 @@ npm run preview
 
 ### 一键部署（Ubuntu / Debian）
 
-如果服务器上的本地仓库还停留在旧提交，先用 GitHub 上的最新版脚本启动：
+推荐优先使用 bootstrap 入口，它会直接从 GitHub 拉最新版 `deploy.sh` 再执行：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoxya/cnc-web-manage/main/deploy.sh -o /tmp/cnc-web-manage-deploy.sh
-sudo bash /tmp/cnc-web-manage-deploy.sh --debug
+curl -fsSL https://raw.githubusercontent.com/xiaoxya/cnc-web-manage/main/bootstrap-deploy.sh -o /tmp/cnc-web-manage-bootstrap.sh
+sudo bash /tmp/cnc-web-manage-bootstrap.sh --debug
 ```
 
-正常情况下也可以直接在仓库目录里执行：
+正常情况下也可以直接在仓库目录里执行 `deploy.sh`：
 
 ```bash
 sudo bash deploy.sh
