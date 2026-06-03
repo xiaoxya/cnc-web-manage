@@ -1,6 +1,6 @@
 ﻿# CNC 刀具管理系统
 
-基于 SvelteKit + Prisma ORM + SQLite/MySQL 的 CNC 刀具全生命周期管理系统。
+基于 SvelteKit + Prisma ORM + MySQL/MariaDB 的 CNC 刀具全生命周期管理系统。
 
 ## 功能特性
 
@@ -21,7 +21,7 @@
 |------|----------|
 | 前端框架 | SvelteKit (TypeScript) |
 | UI 样式 | Tailwind CSS |
-| 数据库 | SQLite / MySQL / MariaDB |
+| 数据库 | MySQL / MariaDB |
 | ORM | Prisma |
 | 认证方式 | JWT (HttpOnly Cookie) |
 | 密码加密 | bcrypt |
@@ -37,7 +37,7 @@
 
 ### 安装
 
-`ash
+```bash
 # 克隆项目
 git clone https://github.com/xiaoxya/cnc-web-manage.git
 cd cnc-web-manage
@@ -45,23 +45,26 @@ cd cnc-web-manage
 # 安装依赖
 npm install
 
-# 初始化数据库（SQLite 默认）
+# 配置数据库连接
+cp .env.example .env
+
+# 初始化数据库
 npx prisma db push
 
 # 初始化种子数据（管理员账号）
 npx prisma db seed
-`
+```
 
 ### 运行
 
-`ash
+```bash
 # 开发模式
 npm run dev
 
 # 生产构建
 npm run build
 npm run preview
-`
+```
 
 ### 默认账号
 
@@ -72,7 +75,7 @@ npm run preview
 
 ## 项目结构
 
-`
+```
 src/
 ├── lib/
 │   ├── components/       # 通用组件（ScanInput, Modal 等）
@@ -96,16 +99,15 @@ src/
 │       ├── maintenance/  # 维修管理页面
 │       └── ...           # 其他页面
 └── app.html
-`
+```
 
 ## 数据库
 
-项目使用 Prisma ORM，默认使用 SQLite（开发方便）。切换 MySQL：
+项目使用 Prisma ORM，当前 schema 配置为 MySQL。
 
-1. 编辑 prisma/schema.prisma 中的 datasource
-2. 创建 .env 文件并设置 DATABASE_URL
-3. 运行 
-px prisma db push
+1. 创建 `.env` 文件并设置 `DATABASE_URL`
+2. 确认 `prisma/schema.prisma` 中的 datasource provider 为 `mysql`
+3. 运行 `npx prisma db push`
 
 ## License
 
