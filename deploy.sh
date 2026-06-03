@@ -17,6 +17,12 @@ DEPLOY_INFO_FILE="${DEPLOY_INFO_FILE:-}"
 DEPLOY_DOC_FILE="${DEPLOY_DOC_FILE:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_VERSION="$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+
+if [[ "${1:-}" == "--debug" ]]; then
+  DEBUG="1"
+  shift
+fi
 
 if [[ $EUID -ne 0 ]]; then
   exec sudo -E bash "$0" "$@"
@@ -447,6 +453,7 @@ print_summary() {
 }
 
 main() {
+  info "Deploy script version: ${SCRIPT_VERSION}"
   install_packages
   install_node
   ensure_mariadb
