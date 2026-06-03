@@ -188,13 +188,21 @@ prepare_repo() {
 
   if [[ -d "$APP_DIR/.git" ]]; then
     info "Updating existing checkout at $APP_DIR"
-    git -C "$APP_DIR" fetch origin "$BRANCH"
-    git -C "$APP_DIR" reset --hard "origin/$BRANCH"
+    if ! git -C "$APP_DIR" fetch origin "$BRANCH"; then
+      fail "Failed to fetch latest code from origin/$BRANCH"
+    fi
+    if ! git -C "$APP_DIR" reset --hard FETCH_HEAD; then
+      fail "Failed to reset working tree to FETCH_HEAD"
+    fi
   else
     info "Cloning repository to $APP_DIR"
     rm -rf "$APP_DIR"
-    git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$APP_DIR"
+    if ! git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$APP_DIR"; then
+      fail "Failed to clone repository from $REPO_URL"
+    fi
   fi
+
+  info "Repository ready at $(git -C "$APP_DIR" rev-parse --short HEAD)"
 }
 
 setup_env() {
