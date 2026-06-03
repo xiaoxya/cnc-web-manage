@@ -11,7 +11,9 @@ export const GET: RequestHandler = async ({ request }) => {
   if (!token) return json([], { status: 401 });
   try {
     verifyToken(token);
-    const categories = await prisma.toolCategory.findMany({ orderBy: { code: "asc" } });
+    const categories = await prisma.toolCategory.findMany({
+      orderBy: [{ code: "asc" }, { name: "asc" }],
+    });
     return json(categories);
   } catch (e) {
     console.error("GET categories error:", e);

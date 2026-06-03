@@ -115,7 +115,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
           data: {
             toolCode: code,
             name: parsed.data.name,
-            specification: parsed.data.specification ?? null,
+            specification: parsed.data.specification,
             specId: (body as Record<string, unknown>).specId as number ?? null,
             material: parsed.data.material ?? null,
             brand: parsed.data.brand ?? null,

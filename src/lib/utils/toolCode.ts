@@ -23,5 +23,13 @@ export async function generateToolCode(
   });
 
   const padded = String(newCounter).padStart(4, "0");
-  return category.code + "-" + padded;
+  const duplicatePrefixCount = await client.toolCategory.count({
+    where: { code: category.code },
+  });
+
+  // When multiple categories share the same prefix, include the category id
+  // to keep generated tool codes unique and still human-readable.
+  return duplicatePrefixCount > 1
+    ? `${category.code}-${category.id}-${padded}`
+    : `${category.code}-${padded}`;
 }

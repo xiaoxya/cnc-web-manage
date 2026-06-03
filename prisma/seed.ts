@@ -45,11 +45,12 @@ async function main() {
   ];
 
   for (const cat of categories) {
-    await prisma.toolCategory.upsert({
-      where: { code: cat.code },
-      update: {},
-      create: cat,
+    const existing = await prisma.toolCategory.findFirst({
+      where: { code: cat.code, name: cat.name },
     });
+    if (!existing) {
+      await prisma.toolCategory.create({ data: cat });
+    }
   }
 
   // Create sample locations

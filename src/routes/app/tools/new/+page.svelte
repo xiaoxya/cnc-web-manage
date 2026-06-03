@@ -38,6 +38,7 @@
   async function handleSubmit() {
     if (!form.name) { error = "请输入刀具名称"; return; }
     if (!form.categoryId) { error = "请选择刀具分类"; return; }
+    if (!form.specification?.trim()) { error = "请选择或输入规格型号"; return; }
     if (!form.quantity || form.quantity <= 0) { error = "请输入入库数量"; return; }
 
     loading = true; error = "";
@@ -102,14 +103,14 @@
         </div>
 
         <div>
-          <label class="label">规格型号</label>
+          <label class="label">规格型号 <span class="text-red-500">*</span></label>
           <select class="input" bind:value={form.specId} on:change={() => { const s = specs.find(x => x.id === form.specId); if (s) form.specification = s.name; }}>
             <option value={null}>请选择规格型号</option>
             {#each specs as s}
               <option value={s.id}>{s.name}{#if s.category} ({s.category.name}){/if}</option>
             {/each}
           </select>
-          <input type="text" class="input mt-2" bind:value={form.specification} placeholder="或手动输入规格型号" />
+          <input type="text" class="input mt-2" bind:value={form.specification} placeholder="或手动输入规格型号，必填" />
         </div>
 
         <div>

@@ -426,7 +426,7 @@
 <!-- Category Modal -->
 <Modal title={catEditMode ? "编辑分类" : "新增分类"} bind:show={catModal} confirmText="保存" on:confirm={saveCat} on:close={() => catModal = false}>
   <div class="space-y-3">
-    <div><label class="label">编码前缀 <span class="text-red-500">*</span></label><input class="input" bind:value={catForm.code} placeholder="如 LAT, MIL" maxlength="10" /></div>
+    <div><label class="label">编码前缀 <span class="text-red-500">*</span>（可重复）</label><input class="input" bind:value={catForm.code} placeholder="如 LAT, MIL" maxlength="10" /></div>
     <div><label class="label">名称 <span class="text-red-500">*</span></label><input class="input" bind:value={catForm.name} placeholder="如 车刀" /></div>
     <div><label class="label">描述</label><input class="input" bind:value={catForm.description} placeholder="可选描述" /></div>
   </div>

@@ -7,7 +7,7 @@ export const loginSchema = z.object({
 
 export const toolSchema = z.object({
   name: z.string().min(1, "刀具名称不能为空"),
-  specification: z.string().optional().nullable(),
+  specification: z.string().trim().min(1, "规格型号不能为空"),
   material: z.string().optional().nullable(),
   brand: z.string().optional().nullable(),
   categoryId: z.number().int().positive("请选择刀具分类"),

@@ -49,7 +49,7 @@ model User {
 
 model ToolCategory {
   id          Int      @id @default(autoincrement())
-  code        String   @unique
+  code        String
   name        String
   description String?
   counter     Int      @default(0)
@@ -59,6 +59,7 @@ model ToolCategory {
   tools Tool[]
   specs Spec[]
 
+  @@index([code])
   @@map("tool_categories")
 }
 
