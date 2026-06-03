@@ -28,6 +28,18 @@ if [[ $EUID -ne 0 ]]; then
   exec sudo -E bash "$0" "$@"
 fi
 
+if [[ -z "${SELF_UPDATE_DONE:-}" ]] && command -v git >/dev/null 2>&1 && git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  current_commit="$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+  remote_commit="$(git -C "$SCRIPT_DIR" rev-parse "origin/$BRANCH" 2>/dev/null || echo unknown)"
+
+  if [[ "$current_commit" != "$remote_commit" && "$remote_commit" != "unknown" ]]; then
+    printf '[INFO] Self-updating deploy script from %s to %s\n' "$current_commit" "$remote_commit"
+    git -C "$SCRIPT_DIR" fetch origin "$BRANCH"
+    git -C "$SCRIPT_DIR" reset --hard "origin/$BRANCH"
+    exec env SELF_UPDATE_DONE=1 bash "$SCRIPT_DIR/deploy.sh" "$@"
+  fi
+fi
+
 if command -v git >/dev/null 2>&1 && git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   APP_DIR="$SCRIPT_DIR"
 else
