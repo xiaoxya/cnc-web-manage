@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 APP_NAME="cnc-web-manage"
 REPO_URL="${REPO_URL:-https://github.com/xiaoxya/cnc-web-manage.git}"
@@ -44,6 +44,15 @@ step() { printf '\n==> %s\n' "$*"; }
 info() { printf '[INFO] %s\n' "$*"; }
 warn() { printf '[WARN] %s\n' "$*"; }
 fail() { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
+
+on_error() {
+  local line="$1"
+  local cmd="$2"
+  local status="$3"
+  printf '[ERROR] Deployment failed at line %s: %s (exit %s)\n' "$line" "$cmd" "$status" >&2
+}
+
+trap 'on_error "$LINENO" "$BASH_COMMAND" "$?"' ERR
 
 gen_secret() {
   openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'
