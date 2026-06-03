@@ -12,6 +12,7 @@ DB_USER="${DB_USER:-cnc_user}"
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-3306}"
 DEPLOY_INFO_FILE="${DEPLOY_INFO_FILE:-}"
+DEPLOY_DOC_FILE="${DEPLOY_DOC_FILE:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -59,6 +60,81 @@ parse_mysql_url() {
   local port_and_db="${host_and_db#*:}"
   DB_PORT="${port_and_db%%/*}"
   DB_NAME="${port_and_db#*/}"
+}
+
+write_deploy_info() {
+  local info_file="${DEPLOY_INFO_FILE:-$APP_DIR/deploy-info.txt}"
+  local doc_file="${DEPLOY_DOC_FILE:-$APP_DIR/deploy-info.md}"
+
+  cat > "$info_file" <<EOF
+App directory: ${APP_DIR}
+MySQL user: ${DB_USER}
+MySQL password: ${DB_PASS}
+Database name: ${DB_NAME}
+Database host: ${DB_HOST}
+Database port: ${DB_PORT}
+Environment file: ${APP_DIR}/.env
+EOF
+  chmod 600 "$info_file"
+
+  cat > "$doc_file" <<EOF
+# Deployment Notes
+
+## Environment
+
+- App directory: \`${APP_DIR}\`
+- MySQL user: \`${DB_USER}\`
+- MySQL password: \`${DB_PASS}\`
+- Database name: \`${DB_NAME}\`
+- Database host: \`${DB_HOST}\`
+- Database port: \`${DB_PORT}\`
+- Environment file: \`${APP_DIR}/.env\`
+
+## Migration
+
+```bash
+cd ${APP_DIR}
+npm ci --include=dev
+npx prisma generate
+npx prisma migrate status
+npx prisma migrate deploy
+npx prisma db seed
+npm run build
+npm prune --omit=dev
+sudo systemctl restart ${APP_NAME}
+```
+
+## Backup
+
+```bash
+mysqldump -u ${DB_USER} -p ${DB_NAME} > ${APP_DIR}/backup-\$(date +%F-%H%M%S).sql
+```
+
+## Restore
+
+```bash
+mysql -u ${DB_USER} -p ${DB_NAME} < /path/to/backup.sql
+```
+
+## Rollback
+
+Prisma migrations do not auto-rollback in production. If you need to revert:
+
+1. Restore a database backup.
+2. Re-deploy a known good git commit.
+3. Re-run:
+
+```bash
+cd ${APP_DIR}
+npm ci --include=dev
+npx prisma generate
+npx prisma migrate deploy
+npm run build
+npm prune --omit=dev
+sudo systemctl restart ${APP_NAME}
+```
+EOF
+  chmod 600 "$doc_file"
 }
 
 mysql_exec() {
@@ -143,16 +219,7 @@ JWT_SECRET="${JWT_SECRET}"
 NODE_ENV=production
 PORT=${APP_PORT}
 EOF
-    cat > "$DEPLOY_INFO_FILE" <<EOF
-App directory: ${APP_DIR}
-MySQL user: ${DB_USER}
-MySQL password: ${DB_PASS}
-Database name: ${DB_NAME}
-Database host: ${DB_HOST}
-Database port: ${DB_PORT}
-Environment file: ${APP_DIR}/.env
-EOF
-    chmod 600 "$DEPLOY_INFO_FILE"
+    write_deploy_info
     info "Generated new .env"
   else
     if grep -q '^DATABASE_URL=' .env; then
@@ -160,16 +227,7 @@ EOF
       parse_mysql_url "$DB_URL"
     fi
     info "Using existing .env"
-    cat > "$DEPLOY_INFO_FILE" <<EOF
-App directory: ${APP_DIR}
-MySQL user: ${DB_USER}
-MySQL password: ${DB_PASS}
-Database name: ${DB_NAME}
-Database host: ${DB_HOST}
-Database port: ${DB_PORT}
-Environment file: ${APP_DIR}/.env
-EOF
-    chmod 600 "$DEPLOY_INFO_FILE"
+    write_deploy_info
   fi
 }
 
@@ -300,6 +358,7 @@ print_summary() {
   log "MySQL password:$DB_PASS"
   log "Database name: $DB_NAME"
   log "Info file:     ${DEPLOY_INFO_FILE:-$APP_DIR/deploy-info.txt}"
+  log "Doc file:      ${DEPLOY_DOC_FILE:-$APP_DIR/deploy-info.md}"
   log ""
   log "Useful commands:"
   log "  systemctl status ${APP_NAME} --no-pager"

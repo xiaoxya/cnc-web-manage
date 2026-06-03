@@ -78,6 +78,37 @@ sudo bash deploy.sh
 sudo APP_PORT=3000 DOMAIN=example.com bash deploy.sh
 ```
 
+部署完成后，服务器上会生成：
+
+- `deploy-info.txt`：数据库用户名、密码、库名
+- `deploy-info.md`：迁移、备份、回滚命令说明
+
+### 数据库迁移与回滚
+
+```bash
+cd /opt/cnc-web-manage
+npm ci --include=dev
+npx prisma generate
+npx prisma migrate status
+npx prisma migrate deploy
+npx prisma db seed
+npm run build
+npm prune --omit=dev
+sudo systemctl restart cnc-web-manage
+```
+
+数据库备份：
+
+```bash
+mysqldump -u cnc_user -p cnc_manage > backup.sql
+```
+
+数据库恢复：
+
+```bash
+mysql -u cnc_user -p cnc_manage < backup.sql
+```
+
 ### 默认账号
 
 | 角色 | 用户名 | 密码 |
