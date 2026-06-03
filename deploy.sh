@@ -151,6 +151,7 @@ mysql_exec() {
   timeout 20s "$client" \
     --protocol=socket \
     --user=root \
+    --password= \
     --connect-timeout=10 \
     "$@"
 }
@@ -215,18 +216,20 @@ setup_env() {
     JWT_SECRET="$(gen_secret)"
 
     info "Creating database and application user"
-    if ! mysql_exec -e "SELECT 1" >/dev/null 2>&1; then
+    if ! DB_CHECK_OUTPUT="$(mysql_exec -e "SELECT 1" 2>&1)"; then
+      printf '%s\n' "$DB_CHECK_OUTPUT"
       fail "Cannot connect to MariaDB as root over the local socket. Please verify the mariadb service is running and root socket auth works."
     fi
 
-    if ! mysql_exec >/dev/null 2>&1 <<SQL
+    if ! DB_INIT_OUTPUT="$(mysql_exec <<SQL 2>&1
 DROP USER IF EXISTS '${DB_USER}'@'localhost';
 CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 FLUSH PRIVILEGES;
 SQL
-    then
+    )"; then
+      printf '%s\n' "$DB_INIT_OUTPUT"
       fail "Failed to initialize the database or application user. Check MariaDB logs and verify the root socket connection manually with: sudo mariadb"
     fi
 
