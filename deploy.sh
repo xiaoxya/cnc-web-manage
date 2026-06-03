@@ -158,63 +158,51 @@ Environment file: ${APP_DIR}/.env
 EOF
   chmod 600 "$info_file"
 
-  cat > "$doc_file" <<EOF
-# Deployment Notes
-
-## Environment
-
-- App directory: \`${APP_DIR}\`
-- MySQL user: \`${DB_USER}\`
-- MySQL password: \`${DB_PASS}\`
-- Database name: \`${DB_NAME}\`
-- Database host: \`${DB_HOST}\`
-- Database port: \`${DB_PORT}\`
-- Environment file: \`${APP_DIR}/.env\`
-
-## Migration
-
-```bash
-cd ${APP_DIR}
-npm ci --include=dev
-npx prisma generate
-npx prisma migrate status
-npx prisma migrate deploy
-npx prisma db seed
-npm run build
-npm prune --omit=dev
-sudo systemctl restart ${APP_NAME}
-```
-
-## Backup
-
-```bash
-mysqldump -u ${DB_USER} -p ${DB_NAME} > ${APP_DIR}/backup-\$(date +%F-%H%M%S).sql
-```
-
-## Restore
-
-```bash
-mysql -u ${DB_USER} -p ${DB_NAME} < /path/to/backup.sql
-```
-
-## Rollback
-
-Prisma migrations do not auto-rollback in production. If you need to revert:
-
-1. Restore a database backup.
-2. Re-deploy a known good git commit.
-3. Re-run:
-
-```bash
-cd ${APP_DIR}
-npm ci --include=dev
-npx prisma generate
-npx prisma migrate deploy
-npm run build
-npm prune --omit=dev
-sudo systemctl restart ${APP_NAME}
-```
-EOF
+  {
+    printf '# Deployment Notes\n\n'
+    printf '## Environment\n\n'
+    printf -- '- App directory: `%s`\n' "$APP_DIR"
+    printf -- '- MySQL user: `%s`\n' "$DB_USER"
+    printf -- '- MySQL password: `%s`\n' "$DB_PASS"
+    printf -- '- Database name: `%s`\n' "$DB_NAME"
+    printf -- '- Database host: `%s`\n' "$DB_HOST"
+    printf -- '- Database port: `%s`\n' "$DB_PORT"
+    printf -- '- Environment file: `%s/.env`\n\n' "$APP_DIR"
+    printf '## Migration\n\n'
+    printf '```bash\n'
+    printf 'cd %s\n' "$APP_DIR"
+    printf 'npm ci --include=dev\n'
+    printf 'npx prisma generate\n'
+    printf 'npx prisma migrate status\n'
+    printf 'npx prisma migrate deploy\n'
+    printf 'npx prisma db seed\n'
+    printf 'npm run build\n'
+    printf 'npm prune --omit=dev\n'
+    printf 'sudo systemctl restart %s\n' "$APP_NAME"
+    printf '```\n\n'
+    printf '## Backup\n\n'
+    printf '```bash\n'
+    printf 'mysqldump -u %s -p %s > %s/backup-$(date +%%F-%%H%%M%%S).sql\n' "$DB_USER" "$DB_NAME" "$APP_DIR"
+    printf '```\n\n'
+    printf '## Restore\n\n'
+    printf '```bash\n'
+    printf 'mysql -u %s -p %s < /path/to/backup.sql\n' "$DB_USER" "$DB_NAME"
+    printf '```\n\n'
+    printf '## Rollback\n\n'
+    printf 'Prisma migrations do not auto-rollback in production. If you need to revert:\n\n'
+    printf '1. Restore a database backup.\n'
+    printf '2. Re-deploy a known good git commit.\n'
+    printf '3. Re-run:\n\n'
+    printf '```bash\n'
+    printf 'cd %s\n' "$APP_DIR"
+    printf 'npm ci --include=dev\n'
+    printf 'npx prisma generate\n'
+    printf 'npx prisma migrate deploy\n'
+    printf 'npm run build\n'
+    printf 'npm prune --omit=dev\n'
+    printf 'sudo systemctl restart %s\n' "$APP_NAME"
+    printf '```\n'
+  } > "$doc_file"
   chmod 600 "$doc_file"
 }
 
