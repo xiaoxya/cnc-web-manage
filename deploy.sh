@@ -222,6 +222,7 @@ EOF
     printf 'npx prisma migrate status\n'
     printf 'npx prisma migrate deploy\n'
     printf 'npx prisma db seed\n'
+    printf 'npx svelte-kit sync\n'
     printf 'npm run build\n'
     printf 'npm prune --omit=dev\n'
     printf 'sudo systemctl restart %s\n' "$APP_NAME"
@@ -244,6 +245,7 @@ EOF
     printf 'npm ci --include=dev\n'
     printf 'npx prisma generate\n'
     printf 'npx prisma migrate deploy\n'
+    printf 'npx svelte-kit sync\n'
     printf 'npm run build\n'
     printf 'npm prune --omit=dev\n'
     printf 'sudo systemctl restart %s\n' "$APP_NAME"
@@ -400,12 +402,17 @@ SQL
     cat > .env <<EOF
 DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
 JWT_SECRET="${JWT_SECRET}"
-NODE_ENV=production
 PORT=${APP_PORT}
 EOF
     write_deploy_info
     info "Generated new .env"
   else
+    if grep -q '^NODE_ENV=' .env; then
+      sed -i.bak '/^NODE_ENV=/d' .env
+      rm -f .env.bak
+      info "Removed NODE_ENV from .env; systemd sets it for runtime instead"
+    fi
+
     if grep -q '^DATABASE_URL=' .env; then
       DB_URL="$(grep '^DATABASE_URL=' .env | head -n1 | cut -d= -f2- | tr -d '"')"
       parse_mysql_url "$DB_URL"
@@ -432,6 +439,9 @@ run_prisma_tasks() {
 }
 
 build_app() {
+  step "Syncing SvelteKit metadata"
+  npx svelte-kit sync
+
   step "Building production bundle"
   npm run build
 
@@ -453,6 +463,7 @@ Wants=mariadb.service
 Type=simple
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${APP_DIR}/.env
+Environment=NODE_ENV=production
 ExecStart=${NODE_BIN} ${APP_DIR}/build/index.js
 Restart=always
 RestartSec=5

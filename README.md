@@ -109,6 +109,7 @@ npx prisma generate
 npx prisma migrate status
 npx prisma migrate deploy
 npx prisma db seed
+npx svelte-kit sync
 npm run build
 npm prune --omit=dev
 sudo systemctl restart cnc-web-manage
