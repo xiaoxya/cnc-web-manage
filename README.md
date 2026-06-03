@@ -66,6 +66,18 @@ npm run build
 npm run preview
 ```
 
+### 一键部署（Ubuntu / Debian）
+
+```bash
+sudo bash deploy.sh
+```
+
+可选参数：
+
+```bash
+sudo APP_PORT=3000 DOMAIN=example.com bash deploy.sh
+```
+
 ### 默认账号
 
 | 角色 | 用户名 | 密码 |
