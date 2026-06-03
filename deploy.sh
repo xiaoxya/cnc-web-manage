@@ -274,6 +274,7 @@ deploy_app() {
             if [[ $OVERWRITE =~ ^[Yy]$ ]]; then
                 rm -rf "$APP_DIR"
                 git clone --depth=1 "$REPO_URL" "$APP_DIR"
+                cd "$APP_DIR"
             else
                 log_error "部署取消"
                 exit 1
@@ -309,6 +310,10 @@ ENVEOF
 
     # ── 全量安装（postinstall/build/migrate/seed 都需要 devDependencies）──
     log_step "安装 Node.js 依赖..."
+    if [[ ! -f "package-lock.json" ]]; then
+        log_error "未找到 package-lock.json，当前目录不是项目目录或代码拉取不完整: $(pwd)"
+        exit 1
+    fi
     npm ci --include=dev
 
     # ── 生成 Prisma Client ──
