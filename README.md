@@ -71,14 +71,14 @@ npm run preview
 推荐优先使用直接管道执行，它会直接从 GitHub 拉最新版 `deploy.sh` 再执行：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/xiaoxya/cnc-web-manage/main/deploy.sh | sudo bash -s -- --debug
+curl -fsSL https://raw.githubusercontent.com/xiaoxya/cnc-web-manage/main/deploy.sh | sudo bash
 ```
 
 如果你更想保留一个本地临时文件，也可以用 bootstrap 入口：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xiaoxya/cnc-web-manage/main/bootstrap-deploy.sh -o /tmp/cnc-web-manage-bootstrap.sh
-sudo bash /tmp/cnc-web-manage-bootstrap.sh --debug
+sudo bash /tmp/cnc-web-manage-bootstrap.sh
 ```
 
 正常情况下也可以直接在仓库目录里执行 `deploy.sh`：
@@ -92,6 +92,8 @@ sudo bash deploy.sh
 ```bash
 sudo APP_PORT=3000 DOMAIN=example.com bash deploy.sh
 ```
+
+默认部署会把完整日志写入 `/tmp/cnc-web-manage-deploy.log`，终端只在失败时输出错误摘要。需要看完整过程时再加 `--verbose`；需要调试脚本时再加 `--debug`。
 
 部署完成后，服务器上会生成：
 

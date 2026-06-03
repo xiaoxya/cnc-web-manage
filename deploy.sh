@@ -12,6 +12,7 @@ DB_USER="${DB_USER:-cnc_user}"
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-3306}"
 DEBUG="${DEBUG:-0}"
+VERBOSE="${VERBOSE:-0}"
 DEPLOY_LOG="${DEPLOY_LOG:-}"
 DEPLOY_INFO_FILE="${DEPLOY_INFO_FILE:-}"
 DEPLOY_DOC_FILE="${DEPLOY_DOC_FILE:-}"
@@ -24,18 +25,82 @@ else
 fi
 SCRIPT_VERSION="$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo remote)"
 
-if [[ "${1:-}" == "--debug" ]]; then
-  DEBUG="1"
-  shift
-fi
+while [[ "${1:-}" == --* ]]; do
+  case "$1" in
+    --debug)
+      DEBUG="1"
+      VERBOSE="1"
+      shift
+      ;;
+    --verbose)
+      VERBOSE="1"
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+DEPLOY_LOG="${DEPLOY_LOG:-/tmp/${APP_NAME}-deploy.log}"
+export DEBUG VERBOSE DEPLOY_LOG
+exec 3>&1 4>&2
 
 if [[ $EUID -ne 0 ]]; then
   if [[ -n "$SCRIPT_PATH" && -f "$SCRIPT_PATH" ]]; then
     exec sudo -E bash "$SCRIPT_PATH" "$@"
   fi
-  printf '[ERROR] Please run remote/stdin deployment with sudo, for example: curl -fsSL ... | sudo bash -s -- --debug\n' >&2
+  printf '[ERROR] Please run remote/stdin deployment with sudo, for example: curl -fsSL ... | sudo bash\n' >&4
   exit 1
 fi
+
+if [[ "$DEBUG" == "1" ]]; then
+  : > "$DEPLOY_LOG"
+  export PS4='+ ${BASH_SOURCE[0]:-${0:-bash}}:${LINENO}:${FUNCNAME[0]:-main}: '
+  exec > >(tee -a "$DEPLOY_LOG" >&3) 2> >(tee -a "$DEPLOY_LOG" >&4)
+  set -x
+  printf '[INFO] Debug logging enabled: %s\n' "$DEPLOY_LOG"
+elif [[ "$VERBOSE" != "1" ]]; then
+  : > "$DEPLOY_LOG"
+  exec >"$DEPLOY_LOG" 2>&1
+else
+  : > "$DEPLOY_LOG"
+  exec > >(tee -a "$DEPLOY_LOG" >&3) 2> >(tee -a "$DEPLOY_LOG" >&4)
+  printf '[INFO] Verbose logging enabled: %s\n' "$DEPLOY_LOG"
+fi
+
+log() { printf '%s\n' "$*"; }
+step() { printf '\n==> %s\n' "$*"; }
+info() { printf '[INFO] %s\n' "$*"; }
+warn() { printf '[WARN] %s\n' "$*"; }
+
+print_log_tail() {
+  if [[ -f "$DEPLOY_LOG" ]]; then
+    printf '[ERROR] Last 80 log lines:\n' >&4
+    tail -n 80 "$DEPLOY_LOG" >&4 || true
+    printf '[ERROR] Full log: %s\n' "$DEPLOY_LOG" >&4
+  fi
+}
+
+fail() {
+  printf '[ERROR] %s\n' "$*" >&4
+  if [[ "$DEBUG" != "1" && "$VERBOSE" != "1" ]]; then
+    print_log_tail
+  fi
+  exit 1
+}
+
+on_error() {
+  local line="$1"
+  local cmd="$2"
+  local status="$3"
+  printf '[ERROR] Deployment failed at line %s: %s (exit %s)\n' "$line" "$cmd" "$status" >&4
+  if [[ "$DEBUG" != "1" && "$VERBOSE" != "1" ]]; then
+    print_log_tail
+  fi
+}
+
+trap 'on_error "$LINENO" "$BASH_COMMAND" "$?"' ERR
 
 if [[ -z "${SELF_UPDATE_DONE:-}" ]] && command -v git >/dev/null 2>&1 && git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   current_commit="$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
@@ -45,7 +110,7 @@ if [[ -z "${SELF_UPDATE_DONE:-}" ]] && command -v git >/dev/null 2>&1 && git -C 
     printf '[INFO] Self-updating deploy script from %s to %s\n' "$current_commit" "$remote_commit"
     git -C "$SCRIPT_DIR" fetch origin "$BRANCH"
     git -C "$SCRIPT_DIR" reset --hard "origin/$BRANCH"
-    exec env SELF_UPDATE_DONE=1 bash "$SCRIPT_DIR/deploy.sh" "$@"
+    exec env SELF_UPDATE_DONE=1 DEBUG="$DEBUG" VERBOSE="$VERBOSE" DEPLOY_LOG="$DEPLOY_LOG" bash "$SCRIPT_DIR/deploy.sh" "$@"
   fi
 fi
 
@@ -82,32 +147,8 @@ else
 fi
 
 if [[ ! "$OS_ID" =~ ^(ubuntu|debian|linuxmint)$ ]]; then
-  echo "[ERROR] This script currently supports Debian/Ubuntu based systems only."
-  exit 1
+  fail "This script currently supports Debian/Ubuntu based systems only."
 fi
-
-if [[ "$DEBUG" == "1" ]]; then
-  DEPLOY_LOG="${DEPLOY_LOG:-/tmp/${APP_NAME}-deploy.log}"
-  export PS4='+ ${BASH_SOURCE[0]:-${0:-bash}}:${LINENO}:${FUNCNAME[0]:-main}: '
-  exec > >(tee -a "$DEPLOY_LOG") 2>&1
-  set -x
-  printf '[INFO] Debug logging enabled: %s\n' "$DEPLOY_LOG"
-fi
-
-log() { printf '%s\n' "$*"; }
-step() { printf '\n==> %s\n' "$*"; }
-info() { printf '[INFO] %s\n' "$*"; }
-warn() { printf '[WARN] %s\n' "$*"; }
-fail() { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
-
-on_error() {
-  local line="$1"
-  local cmd="$2"
-  local status="$3"
-  printf '[ERROR] Deployment failed at line %s: %s (exit %s)\n' "$line" "$cmd" "$status" >&2
-}
-
-trap 'on_error "$LINENO" "$BASH_COMMAND" "$?"' ERR
 
 gen_secret() {
   openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'
