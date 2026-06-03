@@ -138,18 +138,21 @@ EOF
 }
 
 mysql_exec() {
-  if command -v mysql >/dev/null 2>&1; then
-    if mysql "$@"; then
-      return 0
-    fi
-  fi
+  local client=""
 
   if command -v mariadb >/dev/null 2>&1; then
-    mariadb "$@"
-    return $?
+    client="mariadb"
+  elif command -v mysql >/dev/null 2>&1; then
+    client="mysql"
+  else
+    return 1
   fi
 
-  return 1
+  timeout 20s "$client" \
+    --protocol=socket \
+    --user=root \
+    --connect-timeout=10 \
+    "$@"
 }
 
 install_packages() {
@@ -204,14 +207,20 @@ setup_env() {
     JWT_SECRET="$(gen_secret)"
 
     info "Creating database and application user"
-    mysql_exec -e "SELECT 1" >/dev/null 2>&1 || fail "MySQL/MariaDB root access is not available"
-    mysql_exec >/dev/null 2>&1 <<SQL
+    if ! mysql_exec -e "SELECT 1" >/dev/null 2>&1; then
+      fail "Cannot connect to MariaDB as root over the local socket. Please verify the mariadb service is running and root socket auth works."
+    fi
+
+    if ! mysql_exec >/dev/null 2>&1 <<SQL
 DROP USER IF EXISTS '${DB_USER}'@'localhost';
 CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 FLUSH PRIVILEGES;
 SQL
+    then
+      fail "Failed to initialize the database or application user. Check MariaDB logs and verify the root socket connection manually with: sudo mariadb"
+    fi
 
     cat > .env <<EOF
 DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
