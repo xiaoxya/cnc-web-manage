@@ -16,8 +16,13 @@ DEPLOY_LOG="${DEPLOY_LOG:-}"
 DEPLOY_INFO_FILE="${DEPLOY_INFO_FILE:-}"
 DEPLOY_DOC_FILE="${DEPLOY_DOC_FILE:-}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPT_VERSION="$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+SCRIPT_PATH="${BASH_SOURCE[0]:-}"
+if [[ -n "$SCRIPT_PATH" && -f "$SCRIPT_PATH" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+else
+  SCRIPT_DIR="$(pwd)"
+fi
+SCRIPT_VERSION="$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo remote)"
 
 if [[ "${1:-}" == "--debug" ]]; then
   DEBUG="1"
@@ -25,7 +30,11 @@ if [[ "${1:-}" == "--debug" ]]; then
 fi
 
 if [[ $EUID -ne 0 ]]; then
-  exec sudo -E bash "$0" "$@"
+  if [[ -n "$SCRIPT_PATH" && -f "$SCRIPT_PATH" ]]; then
+    exec sudo -E bash "$SCRIPT_PATH" "$@"
+  fi
+  printf '[ERROR] Please run remote/stdin deployment with sudo, for example: curl -fsSL ... | sudo bash -s -- --debug\n' >&2
+  exit 1
 fi
 
 if [[ -z "${SELF_UPDATE_DONE:-}" ]] && command -v git >/dev/null 2>&1 && git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -42,7 +51,25 @@ fi
 
 if command -v git >/dev/null 2>&1 && git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   APP_DIR="$SCRIPT_DIR"
+elif [[ -n "${APP_DIR:-}" ]]; then
+  APP_DIR="$APP_DIR"
 else
+  USER_HOME=""
+  if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" ]] && command -v getent >/dev/null 2>&1; then
+    USER_HOME="$(getent passwd "$SUDO_USER" 2>/dev/null | cut -d: -f6 || true)"
+  fi
+
+  for candidate in \
+    "$(pwd)/${APP_NAME}" \
+    "${USER_HOME:+${USER_HOME}/${APP_NAME}}" \
+    "/opt/${APP_NAME}"
+  do
+    if [[ -n "$candidate" && -d "$candidate/.git" ]]; then
+      APP_DIR="$candidate"
+      break
+    fi
+  done
+
   APP_DIR="${APP_DIR:-/opt/${APP_NAME}}"
 fi
 
@@ -61,7 +88,7 @@ fi
 
 if [[ "$DEBUG" == "1" ]]; then
   DEPLOY_LOG="${DEPLOY_LOG:-/tmp/${APP_NAME}-deploy.log}"
-  export PS4='+ ${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]}: '
+  export PS4='+ ${BASH_SOURCE[0]:-${0:-bash}}:${LINENO}:${FUNCNAME[0]:-main}: '
   exec > >(tee -a "$DEPLOY_LOG") 2>&1
   set -x
   printf '[INFO] Debug logging enabled: %s\n' "$DEPLOY_LOG"
