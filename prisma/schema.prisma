@@ -63,6 +63,15 @@ model ToolCategory {
   @@map("tool_categories")
 }
 
+model ToolCodeSequence {
+  id        Int      @id
+  nextValue Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tool_code_sequences")
+}
+
 model Location {
   id          Int      @id @default(autoincrement())
   code        String   @unique

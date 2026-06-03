@@ -110,7 +110,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
     const tools = await prisma.$transaction(async (tx) => {
       const created: unknown[] = [];
       for (let i = 0; i < count; i++) {
-        const code = await generateToolCode(parsed.data.categoryId, tx);
+        const code = await generateToolCode(tx);
         const tool = await tx.tool.create({
           data: {
             toolCode: code,
