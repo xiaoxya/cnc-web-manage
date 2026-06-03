@@ -68,7 +68,13 @@ npm run preview
 
 ### 一键部署（Ubuntu / Debian）
 
-推荐优先使用 bootstrap 入口，它会直接从 GitHub 拉最新版 `deploy.sh` 再执行：
+推荐优先使用直接管道执行，它会直接从 GitHub 拉最新版 `deploy.sh` 再执行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xiaoxya/cnc-web-manage/main/deploy.sh | sudo bash -s -- --debug
+```
+
+如果你更想保留一个本地临时文件，也可以用 bootstrap 入口：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/xiaoxya/cnc-web-manage/main/bootstrap-deploy.sh -o /tmp/cnc-web-manage-bootstrap.sh
