@@ -220,6 +220,30 @@ mysql_exec() {
     "$@"
 }
 
+run_mysql_command() {
+  local output_file="$1"
+  shift
+
+  set +e
+  mysql_exec "$@" >"$output_file" 2>&1
+  local status=$?
+  set -e
+
+  return "$status"
+}
+
+run_mysql_file() {
+  local sql_file="$1"
+  local output_file="$2"
+
+  set +e
+  mysql_exec <"$sql_file" >"$output_file" 2>&1
+  local status=$?
+  set -e
+
+  return "$status"
+}
+
 install_packages() {
   step "Installing system packages"
   export DEBIAN_FRONTEND=noninteractive
@@ -283,27 +307,32 @@ setup_env() {
     info "Using MariaDB socket: $(detect_mysql_socket || echo unavailable)"
 
     DB_CHECK_LOG="$(mktemp)"
-    if mysql_exec -e "SELECT 1" >"$DB_CHECK_LOG" 2>&1; then
+    info "Checking MariaDB root socket access"
+    if run_mysql_command "$DB_CHECK_LOG" -e "SELECT 1"; then
       rm -f "$DB_CHECK_LOG"
+      info "MariaDB root socket access OK"
     else
       cat "$DB_CHECK_LOG"
       rm -f "$DB_CHECK_LOG"
       fail "Cannot connect to MariaDB as root over the local socket. Please verify the mariadb service is running and root socket auth works."
     fi
 
+    DB_INIT_SQL="$(mktemp)"
     DB_INIT_LOG="$(mktemp)"
-    if mysql_exec <<SQL >"$DB_INIT_LOG" 2>&1
+    cat > "$DB_INIT_SQL" <<SQL
 DROP USER IF EXISTS '${DB_USER}'@'localhost';
 CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 FLUSH PRIVILEGES;
 SQL
-    then
-      rm -f "$DB_INIT_LOG"
+    info "Initializing database and application user"
+    if run_mysql_file "$DB_INIT_SQL" "$DB_INIT_LOG"; then
+      rm -f "$DB_INIT_SQL" "$DB_INIT_LOG"
+      info "Database and application user initialized"
     else
       cat "$DB_INIT_LOG"
-      rm -f "$DB_INIT_LOG"
+      rm -f "$DB_INIT_SQL" "$DB_INIT_LOG"
       fail "Failed to initialize the database or application user. Check MariaDB logs and verify the root socket connection manually with: sudo mariadb"
     fi
 
