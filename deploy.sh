@@ -11,6 +11,8 @@ DB_NAME="${DB_NAME:-cnc_manage}"
 DB_USER="${DB_USER:-cnc_user}"
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-3306}"
+DEBUG="${DEBUG:-0}"
+DEPLOY_LOG="${DEPLOY_LOG:-}"
 DEPLOY_INFO_FILE="${DEPLOY_INFO_FILE:-}"
 DEPLOY_DOC_FILE="${DEPLOY_DOC_FILE:-}"
 
@@ -37,6 +39,14 @@ fi
 if [[ ! "$OS_ID" =~ ^(ubuntu|debian|linuxmint)$ ]]; then
   echo "[ERROR] This script currently supports Debian/Ubuntu based systems only."
   exit 1
+fi
+
+if [[ "$DEBUG" == "1" ]]; then
+  DEPLOY_LOG="${DEPLOY_LOG:-/tmp/${APP_NAME}-deploy.log}"
+  export PS4='+ ${BASH_SOURCE##*/}:${LINENO}:${FUNCNAME[0]}: '
+  exec > >(tee -a "$DEPLOY_LOG") 2>&1
+  set -x
+  printf '[INFO] Debug logging enabled: %s\n' "$DEPLOY_LOG"
 fi
 
 log() { printf '%s\n' "$*"; }
