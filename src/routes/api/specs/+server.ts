@@ -3,8 +3,18 @@ import { prisma } from "$lib/server/db";
 import { isAdmin } from "$lib/server/permissions";
 import { validateBody, apiError, apiSuccess } from "$lib/server/validation";
 import { specSchema } from "$lib/schemas";
+import { Prisma } from "@prisma/client";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
+
+function specErrorMessage(e: unknown, fallback: string) {
+  if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e.code === "P2021") return "规格型号数据表缺失，请先执行数据库迁移";
+    if (e.code === "P2003") return "所属分类不存在";
+    if (e.code === "P2025") return "规格型号不存在";
+  }
+  return fallback;
+}
 
 export const GET: RequestHandler = async ({ request, url }) => {
   const token = getTokenFromCookies(request.headers.get("cookie"));
@@ -40,7 +50,7 @@ export const POST: RequestHandler = async ({ request }) => {
     return apiSuccess({ spec: spec as unknown as Record<string, unknown> });
   } catch (e) {
     console.error("POST specs error:", e);
-    return apiError("create failed");
+    return apiError(specErrorMessage(e, "create failed"));
   }
 };
 
@@ -63,7 +73,7 @@ export const PUT: RequestHandler = async ({ request }) => {
     return apiSuccess({ spec: spec as unknown as Record<string, unknown> });
   } catch (e) {
     console.error("PUT specs error:", e);
-    return apiError("update failed");
+    return apiError(specErrorMessage(e, "update failed"));
   }
 };
 
@@ -80,6 +90,6 @@ export const DELETE: RequestHandler = async ({ request, url }) => {
     return apiSuccess({});
   } catch (e) {
     console.error("DELETE specs error:", e);
-    return apiError("delete failed");
+    return apiError(specErrorMessage(e, "delete failed"));
   }
 };

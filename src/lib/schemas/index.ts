@@ -33,7 +33,10 @@ export const locationSchema = z.object({
 
 export const specSchema = z.object({
   name: z.string().min(1, "型号不能为空").max(255),
-  categoryId: z.coerce.number().int().positive().optional().nullable(),
+  categoryId: z.preprocess(
+    (value) => (value === "" || value === null || value === undefined ? null : Number(value)),
+    z.number().int().positive().nullable()
+  ),
 });
 
 export const userSchema = z.object({
