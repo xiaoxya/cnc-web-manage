@@ -297,14 +297,6 @@ deploy_app() {
         cd "$APP_DIR"
     fi
 
-    # ── 全量安装（后续 build/migrate/seed 都需要 devDependencies）──
-    log_step "安装 Node.js 依赖..."
-    npm ci 2>&1 | tail -3
-
-    # ── 生成 Prisma Client ──
-    log_step "生成 Prisma Client..."
-    npx prisma generate
-
     # ── 生成 .env ──
     log_step "生成配置文件..."
     cat > .env <<ENVEOF
@@ -314,6 +306,14 @@ NODE_ENV=production
 PORT=${APP_PORT}
 ENVEOF
     log_info ".env 已生成"
+
+    # ── 全量安装（postinstall/build/migrate/seed 都需要 devDependencies）──
+    log_step "安装 Node.js 依赖..."
+    npm ci --include=dev
+
+    # ── 生成 Prisma Client ──
+    log_step "生成 Prisma Client..."
+    npx prisma generate
 
     # ── 数据库迁移 ──
     log_step "执行数据库迁移..."
@@ -325,11 +325,11 @@ ENVEOF
 
     # ── 构建（vite/sveltekit 现在已安装）──
     log_step "构建生产版本..."
-    npm run build 2>&1 | tail -3
+    npm run build
 
     # ── 构建完再删 devDependencies，减体积但不影响运行时 ──
     log_step "清理开发依赖..."
-    npm prune --production
+    npm prune --omit=dev
 
     log_info "项目构建完成"
 }
