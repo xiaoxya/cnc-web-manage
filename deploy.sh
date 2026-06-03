@@ -49,6 +49,23 @@ gen_secret() {
   openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'
 }
 
+detect_mysql_socket() {
+  local socket
+  for socket in \
+    /run/mysqld/mysqld.sock \
+    /var/run/mysqld/mysqld.sock \
+    /run/mariadb/mariadb.sock \
+    /var/lib/mysql/mysql.sock
+  do
+    if [[ -S "$socket" ]]; then
+      printf '%s' "$socket"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 parse_mysql_url() {
   local url="$1"
   local without_scheme="${url#mysql://}"
@@ -139,6 +156,7 @@ EOF
 
 mysql_exec() {
   local client=""
+  local socket=""
 
   if command -v mariadb >/dev/null 2>&1; then
     client="mariadb"
@@ -148,11 +166,20 @@ mysql_exec() {
     return 1
   fi
 
+  if ! socket="$(detect_mysql_socket)"; then
+    return 1
+  fi
+
   timeout 20s "$client" \
+    --no-defaults \
     --protocol=socket \
+    --socket="$socket" \
     --user=root \
     --password= \
     --connect-timeout=10 \
+    --batch \
+    --skip-column-names \
+    --silent \
     "$@"
 }
 
@@ -216,22 +243,30 @@ setup_env() {
     JWT_SECRET="$(gen_secret)"
 
     info "Creating database and application user"
-    if ! DB_CHECK_OUTPUT="$(mysql_exec -e "SELECT 1" 2>&1)"; then
-      printf '%s\n' "$DB_CHECK_OUTPUT"
+    info "Using MariaDB socket: $(detect_mysql_socket || echo unavailable)"
+
+    DB_CHECK_LOG="$(mktemp)"
+    if ! mysql_exec -e "SELECT 1" >"$DB_CHECK_LOG" 2>&1; then
+      cat "$DB_CHECK_LOG"
+      rm -f "$DB_CHECK_LOG"
       fail "Cannot connect to MariaDB as root over the local socket. Please verify the mariadb service is running and root socket auth works."
     fi
+    rm -f "$DB_CHECK_LOG"
 
-    if ! DB_INIT_OUTPUT="$(mysql_exec <<SQL 2>&1
+    DB_INIT_LOG="$(mktemp)"
+    if ! mysql_exec <<SQL >"$DB_INIT_LOG" 2>&1
 DROP USER IF EXISTS '${DB_USER}'@'localhost';
 CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 FLUSH PRIVILEGES;
 SQL
-    )"; then
-      printf '%s\n' "$DB_INIT_OUTPUT"
+    then
+      cat "$DB_INIT_LOG"
+      rm -f "$DB_INIT_LOG"
       fail "Failed to initialize the database or application user. Check MariaDB logs and verify the root socket connection manually with: sudo mariadb"
     fi
+    rm -f "$DB_INIT_LOG"
 
     cat > .env <<EOF
 DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
