@@ -30,9 +30,9 @@ fi
 
 if [[ -z "${SELF_UPDATE_DONE:-}" ]] && command -v git >/dev/null 2>&1 && git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   current_commit="$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
-  remote_commit="$(git -C "$SCRIPT_DIR" rev-parse "origin/$BRANCH" 2>/dev/null || echo unknown)"
+  remote_commit="$(git ls-remote --heads "$REPO_URL" "$BRANCH" 2>/dev/null | awk 'NR==1 {print substr($1, 1, 7)}')"
 
-  if [[ "$current_commit" != "$remote_commit" && "$remote_commit" != "unknown" ]]; then
+  if [[ -n "$remote_commit" && "$current_commit" != "$remote_commit" ]]; then
     printf '[INFO] Self-updating deploy script from %s to %s\n' "$current_commit" "$remote_commit"
     git -C "$SCRIPT_DIR" fetch origin "$BRANCH"
     git -C "$SCRIPT_DIR" reset --hard "origin/$BRANCH"
