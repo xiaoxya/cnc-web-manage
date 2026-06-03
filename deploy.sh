@@ -11,6 +11,7 @@ DB_NAME="${DB_NAME:-cnc_manage}"
 DB_USER="${DB_USER:-cnc_user}"
 DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-3306}"
+DEPLOY_INFO_FILE="${DEPLOY_INFO_FILE:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -45,6 +46,19 @@ fail() { printf '[ERROR] %s\n' "$*" >&2; exit 1; }
 
 gen_secret() {
   openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'
+}
+
+parse_mysql_url() {
+  local url="$1"
+  local without_scheme="${url#mysql://}"
+  DB_USER="${without_scheme%%:*}"
+  local rest="${without_scheme#*:}"
+  DB_PASS="${rest%%@*}"
+  local host_and_db="${rest#*@}"
+  DB_HOST="${host_and_db%%:*}"
+  local port_and_db="${host_and_db#*:}"
+  DB_PORT="${port_and_db%%/*}"
+  DB_NAME="${port_and_db#*/}"
 }
 
 mysql_exec() {
@@ -107,6 +121,7 @@ prepare_repo() {
 setup_env() {
   step "Configuring environment"
   cd "$APP_DIR"
+  DEPLOY_INFO_FILE="${DEPLOY_INFO_FILE:-$APP_DIR/deploy-info.txt}"
 
   if [[ ! -f .env ]]; then
     DB_PASS="$(gen_secret)"
@@ -128,9 +143,33 @@ JWT_SECRET="${JWT_SECRET}"
 NODE_ENV=production
 PORT=${APP_PORT}
 EOF
+    cat > "$DEPLOY_INFO_FILE" <<EOF
+App directory: ${APP_DIR}
+MySQL user: ${DB_USER}
+MySQL password: ${DB_PASS}
+Database name: ${DB_NAME}
+Database host: ${DB_HOST}
+Database port: ${DB_PORT}
+Environment file: ${APP_DIR}/.env
+EOF
+    chmod 600 "$DEPLOY_INFO_FILE"
     info "Generated new .env"
   else
+    if grep -q '^DATABASE_URL=' .env; then
+      DB_URL="$(grep '^DATABASE_URL=' .env | head -n1 | cut -d= -f2- | tr -d '"')"
+      parse_mysql_url "$DB_URL"
+    fi
     info "Using existing .env"
+    cat > "$DEPLOY_INFO_FILE" <<EOF
+App directory: ${APP_DIR}
+MySQL user: ${DB_USER}
+MySQL password: ${DB_PASS}
+Database name: ${DB_NAME}
+Database host: ${DB_HOST}
+Database port: ${DB_PORT}
+Environment file: ${APP_DIR}/.env
+EOF
+    chmod 600 "$DEPLOY_INFO_FILE"
   fi
 }
 
@@ -256,6 +295,11 @@ print_summary() {
   else
     log "Domain:        (IP access)"
   fi
+  log ""
+  log "MySQL user:    $DB_USER"
+  log "MySQL password:$DB_PASS"
+  log "Database name: $DB_NAME"
+  log "Info file:     ${DEPLOY_INFO_FILE:-$APP_DIR/deploy-info.txt}"
   log ""
   log "Useful commands:"
   log "  systemctl status ${APP_NAME} --no-pager"

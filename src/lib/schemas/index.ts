@@ -31,6 +31,11 @@ export const locationSchema = z.object({
   description: z.string().optional().nullable(),
 });
 
+export const specSchema = z.object({
+  name: z.string().min(1, "型号不能为空").max(255),
+  categoryId: z.coerce.number().int().positive().optional().nullable(),
+});
+
 export const userSchema = z.object({
   username: z.string().min(3, "用户名至少3个字符").max(50),
   password: z.string().min(6, "密码至少6个字符").optional().or(z.literal("")),

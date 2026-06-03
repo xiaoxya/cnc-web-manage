@@ -9,18 +9,21 @@
   let catForm: any = { code: "", name: "", description: "" };
   let catEditMode = false;
   let catModal = false;
+  let catError = "";
 
   // Locations
   let locations: any[] = [];
   let locForm: any = { code: "", name: "", description: "" };
   let locEditMode = false;
   let locModal = false;
+  let locError = "";
 
   // Specs
   let specs: any[] = [];
   let specForm: any = { name: "", categoryId: null };
   let specEditMode = false;
   let specModal = false;
+  let specError = "";
 
   // Users
   let users: any[] = [];
@@ -32,12 +35,14 @@
   // Repair Vendors
   let vendors: any[] = [];
   let vendorForm: any = { name: "" };
+  let vendorError = "";
 
   // Factories
   let factories: any[] = [];
   let factoryForm: any = { code: "", name: "", description: "" };
   let factoryEditMode = false;
   let factoryModal = false;
+  let factoryError = "";
   let vendorEditMode = false;
   let vendorModal = false;
 
@@ -78,13 +83,20 @@
   }
 
   // Category CRUD
-  function openCatAdd() { catForm = { code: "", name: "", description: "" }; catEditMode = false; catModal = true; }
-  function openCatEdit(c: any) { catForm = { ...c }; catEditMode = true; catModal = true; }
+  function openCatAdd() { catForm = { code: "", name: "", description: "" }; catEditMode = false; catError = ""; catModal = true; }
+  function openCatEdit(c: any) { catForm = { ...c }; catEditMode = true; catError = ""; catModal = true; }
 
   async function saveCat() {
-    const method = catEditMode ? "PUT" : "POST";
-    await fetch("/api/categories", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(catForm) });
-    catModal = false; loadCategories();
+    catError = "";
+    try {
+      const method = catEditMode ? "PUT" : "POST";
+      const res = await fetch("/api/categories", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(catForm) });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) { catModal = false; loadCategories(); }
+      else { catError = data.message || "保存失败"; }
+    } catch {
+      catError = "网络错误";
+    }
   }
 
   async function deleteCat(id: number) {
@@ -94,13 +106,20 @@
   }
 
   // Location CRUD
-  function openLocAdd() { locForm = { code: "", name: "", description: "" }; locEditMode = false; locModal = true; }
-  function openLocEdit(l: any) { locForm = { ...l }; locEditMode = true; locModal = true; }
+  function openLocAdd() { locForm = { code: "", name: "", description: "" }; locEditMode = false; locError = ""; locModal = true; }
+  function openLocEdit(l: any) { locForm = { ...l }; locEditMode = true; locError = ""; locModal = true; }
 
   async function saveLoc() {
-    const method = locEditMode ? "PUT" : "POST";
-    await fetch("/api/locations", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(locForm) });
-    locModal = false; loadLocations();
+    locError = "";
+    try {
+      const method = locEditMode ? "PUT" : "POST";
+      const res = await fetch("/api/locations", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(locForm) });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) { locModal = false; loadLocations(); }
+      else { locError = data.message || "保存失败"; }
+    } catch {
+      locError = "网络错误";
+    }
   }
 
   async function deleteLoc(id: number) {
@@ -110,13 +129,21 @@
   }
 
   // Spec CRUD
-  function openSpecAdd() { specForm = { name: "", categoryId: null }; specEditMode = false; specModal = true; }
-  function openSpecEdit(s: any) { specForm = { ...s }; specEditMode = true; specModal = true; }
+  function openSpecAdd() { specForm = { name: "", categoryId: null }; specEditMode = false; specError = ""; specModal = true; }
+  function openSpecEdit(s: any) { specForm = { ...s, categoryId: s.categoryId ?? null }; specEditMode = true; specError = ""; specModal = true; }
 
   async function saveSpec() {
-    const method = specEditMode ? "PUT" : "POST";
-    await fetch("/api/specs", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(specForm) });
-    specModal = false; loadSpecs();
+    specError = "";
+    try {
+      const method = specEditMode ? "PUT" : "POST";
+      const payload = { ...specForm, categoryId: specForm.categoryId === "" || specForm.categoryId === null ? null : Number(specForm.categoryId) };
+      const res = await fetch("/api/specs", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) { specModal = false; loadSpecs(); }
+      else { specError = data.message || "保存失败"; }
+    } catch {
+      specError = "网络错误";
+    }
   }
 
   async function deleteSpec(id: number) {
@@ -133,35 +160,53 @@
     userError = "";
     if (!userForm.username) { userError = "用户名不能为空"; return; }
     if (!userEditMode && (!userForm.password || userForm.password.length < 6)) { userError = "密码至少6位"; return; }
-    const method = userEditMode ? "PUT" : "POST";
-    const res = await fetch("/api/users", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(userForm) });
-    const data = await res.json();
-    if (data.success) { userModal = false; loadUsers(); }
-    else { userError = data.message || "操作失败"; }
+    try {
+      const method = userEditMode ? "PUT" : "POST";
+      const res = await fetch("/api/users", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(userForm) });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) { userModal = false; loadUsers(); }
+      else { userError = data.message || "操作失败"; }
+    } catch {
+      userError = "网络错误";
+    }
   }
 
   // Vendor CRUD
-  function openVendorAdd() { vendorForm = { name: "" }; vendorEditMode = false; vendorModal = true; }
-  function openVendorEdit(v: any) { vendorForm = { ...v }; vendorEditMode = true; vendorModal = true; }
+  function openVendorAdd() { vendorForm = { name: "" }; vendorEditMode = false; vendorError = ""; vendorModal = true; }
+  function openVendorEdit(v: any) { vendorForm = { ...v }; vendorEditMode = true; vendorError = ""; vendorModal = true; }
 
   async function saveVendor() {
-    const method = vendorEditMode ? "PUT" : "POST";
-    let url = "/api/repair-vendors";
-    if (vendorEditMode) url += "?id=" + vendorForm.id;
-    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(vendorForm) });
-    vendorModal = false; loadVendors();
+    vendorError = "";
+    try {
+      const method = vendorEditMode ? "PUT" : "POST";
+      let url = "/api/repair-vendors";
+      if (vendorEditMode) url += "?id=" + vendorForm.id;
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(vendorForm) });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) { vendorModal = false; loadVendors(); }
+      else { vendorError = data.message || "保存失败"; }
+    } catch {
+      vendorError = "网络错误";
+    }
   }
 
   // Factory CRUD
-  function openFactoryAdd() { factoryForm = { code: "", name: "", description: "" }; factoryEditMode = false; factoryModal = true; }
-  function openFactoryEdit(f: any) { factoryForm = { ...f }; factoryEditMode = true; factoryModal = true; }
+  function openFactoryAdd() { factoryForm = { code: "", name: "", description: "" }; factoryEditMode = false; factoryError = ""; factoryModal = true; }
+  function openFactoryEdit(f: any) { factoryForm = { ...f }; factoryEditMode = true; factoryError = ""; factoryModal = true; }
 
   async function saveFactory() {
-    const method = factoryEditMode ? "PUT" : "POST";
-    let url = "/api/factories";
-    if (factoryEditMode) url += "?id=" + factoryForm.id;
-    await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(factoryForm) });
-    factoryModal = false; loadFactories();
+    factoryError = "";
+    try {
+      const method = factoryEditMode ? "PUT" : "POST";
+      let url = "/api/factories";
+      if (factoryEditMode) url += "?id=" + factoryForm.id;
+      const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(factoryForm) });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) { factoryModal = false; loadFactories(); }
+      else { factoryError = data.message || "保存失败"; }
+    } catch {
+      factoryError = "网络错误";
+    }
   }
 
   async function deleteFactory(id: number) {
@@ -425,6 +470,9 @@
 
 <!-- Category Modal -->
 <Modal title={catEditMode ? "编辑分类" : "新增分类"} bind:show={catModal} confirmText="保存" on:confirm={saveCat} on:close={() => catModal = false}>
+  {#if catError}
+    <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-3">{catError}</div>
+  {/if}
   <div class="space-y-3">
     <div><label class="label">编码前缀 <span class="text-red-500">*</span>（可重复）</label><input class="input" bind:value={catForm.code} placeholder="如 LAT, MIL" maxlength="10" /></div>
     <div><label class="label">名称 <span class="text-red-500">*</span></label><input class="input" bind:value={catForm.name} placeholder="如 车刀" /></div>
@@ -434,6 +482,9 @@
 
 <!-- Factory Modal -->
 <Modal title={factoryEditMode ? "编辑工厂" : "新增工厂"} bind:show={factoryModal} confirmText="保存" on:confirm={saveFactory} on:close={() => factoryModal = false}>
+  {#if factoryError}
+    <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-3">{factoryError}</div>
+  {/if}
   <div class="space-y-3">
     <div><label class="label">编码 <span class="text-red-500">*</span></label><input class="input" bind:value={factoryForm.code} placeholder="如：FACTORY01" /></div>
     <div><label class="label">名称 <span class="text-red-500">*</span></label><input class="input" bind:value={factoryForm.name} placeholder="如：一号工厂" /></div>
@@ -443,6 +494,9 @@
 
 <!-- Vendor Modal -->
 <Modal title={vendorEditMode ? "编辑维修厂家" : "新增维修厂家"} bind:show={vendorModal} confirmText="保存" on:confirm={saveVendor} on:close={() => vendorModal = false}>
+  {#if vendorError}
+    <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-3">{vendorError}</div>
+  {/if}
   <div class="space-y-3">
     <div><label class="label">厂家名称 <span class="text-red-500">*</span></label><input class="input" bind:value={vendorForm.name} placeholder="如：原厂维修" /></div>
   </div>
@@ -450,6 +504,9 @@
 
 <!-- Location Modal -->
 <Modal title={locEditMode ? "编辑库位" : "新增库位"} bind:show={locModal} confirmText="保存" on:confirm={saveLoc} on:close={() => locModal = false}>
+  {#if locError}
+    <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-3">{locError}</div>
+  {/if}
   <div class="space-y-3">
     <div><label class="label">编码 <span class="text-red-500">*</span></label><input class="input" bind:value={locForm.code} placeholder="如 A-01-01" /></div>
     <div><label class="label">名称 <span class="text-red-500">*</span></label><input class="input" bind:value={locForm.name} placeholder="如 A货架第1层第1格" /></div>
@@ -459,6 +516,9 @@
 
 <!-- Spec Modal -->
 <Modal title={specEditMode ? "编辑规格型号" : "新增规格型号"} bind:show={specModal} confirmText="保存" on:confirm={saveSpec} on:close={() => { specModal = false; }}>
+  {#if specError}
+    <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-3">{specError}</div>
+  {/if}
   <div class="space-y-3">
     <div><label class="label">型号名称 <span class="text-red-500">*</span></label><input class="input" bind:value={specForm.name} placeholder="如 D20x100" /></div>
     <div><label class="label">所属分类</label>
