@@ -246,15 +246,16 @@ setup_env() {
     info "Using MariaDB socket: $(detect_mysql_socket || echo unavailable)"
 
     DB_CHECK_LOG="$(mktemp)"
-    if ! mysql_exec -e "SELECT 1" >"$DB_CHECK_LOG" 2>&1; then
+    if mysql_exec -e "SELECT 1" >"$DB_CHECK_LOG" 2>&1; then
+      rm -f "$DB_CHECK_LOG"
+    else
       cat "$DB_CHECK_LOG"
       rm -f "$DB_CHECK_LOG"
       fail "Cannot connect to MariaDB as root over the local socket. Please verify the mariadb service is running and root socket auth works."
     fi
-    rm -f "$DB_CHECK_LOG"
 
     DB_INIT_LOG="$(mktemp)"
-    if ! mysql_exec <<SQL >"$DB_INIT_LOG" 2>&1
+    if mysql_exec <<SQL >"$DB_INIT_LOG" 2>&1
 DROP USER IF EXISTS '${DB_USER}'@'localhost';
 CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
@@ -262,11 +263,12 @@ GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 FLUSH PRIVILEGES;
 SQL
     then
+      rm -f "$DB_INIT_LOG"
+    else
       cat "$DB_INIT_LOG"
       rm -f "$DB_INIT_LOG"
       fail "Failed to initialize the database or application user. Check MariaDB logs and verify the root socket connection manually with: sudo mariadb"
     fi
-    rm -f "$DB_INIT_LOG"
 
     cat > .env <<EOF
 DATABASE_URL="mysql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
