@@ -21,5 +21,5 @@ export async function generateToolCode(tx?: PrismaTypes.TransactionClient): Prom
     data: { nextValue: currentValue + 1 },
   });
 
-  return `Q+${String(currentValue).padStart(5, "0")}`;
+  return `Q${String(currentValue).padStart(5, "0")}`;
 }

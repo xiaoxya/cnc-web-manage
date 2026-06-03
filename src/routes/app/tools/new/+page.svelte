@@ -7,7 +7,7 @@
   let categories: any[] = [];
   let locations: any[] = [];
   let specs: any[] = [];
-  let generatedCode = "保存后自动生成（如 Q+00001）";
+  let generatedCode = "保存后自动生成（如 Q00001）";
 
   let form = {
     name: "", specification: "", material: "", brand: "",

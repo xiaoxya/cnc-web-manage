@@ -26,7 +26,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
     headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
     headerRow.alignment = { horizontal: "center" };
 
-    sheet.addRow({ toolCode: "Q+00001", quantity: 5, notes: "示例数据（请删除）" });
+    sheet.addRow({ toolCode: "Q00001", quantity: 5, notes: "示例数据（请删除）" });
 
     const buffer = await workbook.xlsx.writeBuffer();
 
