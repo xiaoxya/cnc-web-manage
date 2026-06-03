@@ -46,6 +46,10 @@ DEPLOY_LOG="${DEPLOY_LOG:-/tmp/${APP_NAME}-deploy.log}"
 export DEBUG VERBOSE DEPLOY_LOG
 exec 3>&1 4>&2
 
+is_quiet() {
+  [[ "$DEBUG" != "1" && "$VERBOSE" != "1" ]]
+}
+
 if [[ $EUID -ne 0 ]]; then
   if [[ -n "$SCRIPT_PATH" && -f "$SCRIPT_PATH" ]]; then
     exec sudo -E bash "$SCRIPT_PATH" "$@"
@@ -63,6 +67,7 @@ if [[ "$DEBUG" == "1" ]]; then
 elif [[ "$VERBOSE" != "1" ]]; then
   : > "$DEPLOY_LOG"
   exec >"$DEPLOY_LOG" 2>&1
+  printf '[INFO] Deployment started. Only errors will be shown. Full log: %s\n' "$DEPLOY_LOG" >&3
 else
   : > "$DEPLOY_LOG"
   exec > >(tee -a "$DEPLOY_LOG" >&3) 2> >(tee -a "$DEPLOY_LOG" >&4)
@@ -84,7 +89,7 @@ print_log_tail() {
 
 fail() {
   printf '[ERROR] %s\n' "$*" >&4
-  if [[ "$DEBUG" != "1" && "$VERBOSE" != "1" ]]; then
+  if is_quiet; then
     print_log_tail
   fi
   exit 1
@@ -95,7 +100,7 @@ on_error() {
   local cmd="$2"
   local status="$3"
   printf '[ERROR] Deployment failed at line %s: %s (exit %s)\n' "$line" "$cmd" "$status" >&4
-  if [[ "$DEBUG" != "1" && "$VERBOSE" != "1" ]]; then
+  if is_quiet; then
     print_log_tail
   fi
 }
@@ -547,6 +552,11 @@ print_summary() {
   log "Default accounts after seeding:"
   log "  admin / admin123"
   log "  operator / operator123"
+
+  if is_quiet; then
+    printf '[INFO] Deployment complete. Full log: %s\n' "$DEPLOY_LOG" >&3
+    printf '[INFO] Database credentials saved in: %s\n' "${DEPLOY_INFO_FILE:-$APP_DIR/deploy-info.txt}" >&3
+  fi
 }
 
 main() {

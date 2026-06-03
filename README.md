@@ -93,7 +93,7 @@ sudo bash deploy.sh
 sudo APP_PORT=3000 DOMAIN=example.com bash deploy.sh
 ```
 
-默认部署会把完整日志写入 `/tmp/cnc-web-manage-deploy.log`，终端只在失败时输出错误摘要。需要看完整过程时再加 `--verbose`；需要调试脚本时再加 `--debug`。
+默认部署会把完整日志写入 `/tmp/cnc-web-manage-deploy.log`，终端只显示开始、完成和失败错误摘要。需要看完整过程时再加 `--verbose`；需要调试脚本时再加 `--debug`。
 
 部署完成后，服务器上会生成：
 
