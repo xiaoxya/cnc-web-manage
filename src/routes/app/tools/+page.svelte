@@ -26,6 +26,7 @@
   let activeTab = "all";
   let inUseItems: any[] = [];
   let factorySummary: any[] = [];
+  let factories: any[] = [];
   let inUseSearch = "";
   let inUseFactoryId = "";
   let inUseLoading = false;
@@ -49,7 +50,7 @@
   ];
 
   onMount(async () => {
-    await Promise.all([loadTools(), loadOptions(), loadUser()]);
+    await Promise.all([loadTools(), loadOptions(), loadUser(), loadFactories()]);
   });
 
   async function loadOptions() {
@@ -169,6 +170,13 @@
       } else { returnError = data.message || "操作失败"; }
     } catch { returnError = "网络错误"; }
     returnLoading = false;
+  }
+
+  async function loadFactories() {
+    try {
+      const res = await fetch("/api/factories");
+      if (res.ok) factories = await res.json();
+    } catch {}
   }
 
   async function outboundTool() {
@@ -441,12 +449,18 @@
     <p class="mt-2 font-semibold">{outTarget.toolCode} - {outTarget.name}</p>
     <div class="mt-4">
       <label class="label">目标工厂 <span class="text-red-500">*</span></label>
-      <select class="input" bind:value={outFactoryId}>
-        <option value="">请选择工厂</option>
-        {#each factorySummary as f}
-          <option value={f.factoryId}>{f.factoryCode} - {f.factoryName}</option>
-        {/each}
-      </select>
+      {#if factories.length > 0}
+        <select class="input" bind:value={outFactoryId}>
+          <option value="">请选择工厂</option>
+          {#each factories as f}
+            <option value={f.id}>{f.code} - {f.name}</option>
+          {/each}
+        </select>
+      {:else}
+        <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          暂未加载到工厂列表，请稍后重试或先检查工厂管理是否已有数据。
+        </div>
+      {/if}
     </div>
     <div class="mt-4">
       <label class="label">备注</label>
