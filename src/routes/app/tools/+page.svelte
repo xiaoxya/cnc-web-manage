@@ -228,6 +228,11 @@
     if (tool.quantity <= tool.minQuantity) return "text-red-600 font-semibold";
     return "";
   }
+
+  function formatDate(value: string | Date | null | undefined): string {
+    if (!value) return "—";
+    return new Date(value).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
+  }
 </script>
 
 <div class="flex items-center justify-between mb-6">
@@ -302,7 +307,7 @@
             <th class="table-header">规格</th>
             <th class="table-header">库位</th>
             <th class="table-header text-right">库存</th>
-            <th class="table-header text-right">最低预警</th>
+            <th class="table-header">入库时间</th>
             <th class="table-header">状态</th>
             <th class="table-header">操作</th>
           </tr>
@@ -316,7 +321,7 @@
               <td class="table-cell text-gray-500">{tool.specification || "—"}</td>
               <td class="table-cell">{tool.location?.code || "—"}</td>
               <td class="table-cell text-right {getLowStockClass(tool)}">{tool.status === "SCRAPPED" ? "-" : tool.quantity + " " + tool.unit}</td>
-              <td class="table-cell text-right text-gray-500">{tool.status === "SCRAPPED" ? "-" : tool.minQuantity}</td>
+              <td class="table-cell text-gray-500 text-xs">{formatDate(tool.createdAt)}</td>
               <td class="table-cell">
                 <span class="badge {statusColors[tool.status]}">{tool.status === 'IN_USE' && tool.factoryName ? '使用中 - ' + tool.factoryCode : statusMap[tool.status]}</span>
               </td>
