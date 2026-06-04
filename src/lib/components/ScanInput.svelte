@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount, onDestroy } from "svelte";
+  import { createEventDispatcher, onMount, onDestroy, tick } from "svelte";
   import { Html5Qrcode } from "html5-qrcode";
 
   const dispatch = createEventDispatcher();
@@ -14,6 +14,8 @@
   let cameraScanning = false;
   let scannerEl: HTMLDivElement;
   let html5Scanner: Html5Qrcode | null = null;
+  let scannerId = `camera-scanner-${Math.random().toString(36).slice(2)}`;
+  let cameraError = "";
 
   function handleInput(e: Event) {
     const target = e.target as HTMLInputElement;
@@ -35,20 +37,56 @@
   }
 
   async function startCamera() {
+    cameraError = "";
+
+    if (!window.isSecureContext) {
+      cameraError = "手机浏览器摄像头需要 HTTPS 访问，请使用 https 域名访问系统后再扫码。";
+      alert(cameraError);
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      cameraError = "当前浏览器不支持摄像头扫码，请更换 Chrome、Safari 或 Edge 后重试。";
+      alert(cameraError);
+      return;
+    }
+
     try {
       cameraScanning = true;
-      html5Scanner = new Html5Qrcode("camera-scanner");
+      await tick();
+      html5Scanner = new Html5Qrcode(scannerId);
 
-      await html5Scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 150 } },
-        onScanSuccess,
-        onScanFailure
-      );
+      try {
+        await html5Scanner.start(
+          { facingMode: { ideal: "environment" } },
+          { fps: 10, qrbox: { width: 250, height: 150 } },
+          onScanSuccess,
+          onScanFailure
+        );
+      } catch {
+        const cameras = await Html5Qrcode.getCameras();
+        const backCamera = cameras.find((camera) => /back|rear|environment|后置/i.test(camera.label));
+        const cameraId = backCamera?.id || cameras[0]?.id;
+        if (!cameraId) throw new Error("No camera found");
+
+        await html5Scanner.start(
+          cameraId,
+          { fps: 10, qrbox: { width: 250, height: 150 } },
+          onScanSuccess,
+          onScanFailure
+        );
+      }
     } catch (err) {
       console.error("Camera start error:", err);
+      cameraError = "无法启动摄像头，请确认浏览器已允许摄像头权限，并使用 HTTPS 访问系统。";
+      if (html5Scanner) {
+        try {
+          await html5Scanner.clear();
+        } catch {}
+        html5Scanner = null;
+      }
       cameraScanning = false;
-      alert("无法启动摄像头，请检查权限设置");
+      alert(cameraError);
     }
   }
 
@@ -144,5 +182,11 @@
 </div>
 
 {#if cameraScanning}
-  <div id="camera-scanner" bind:this={scannerEl} class="mt-2 rounded-lg overflow-hidden border border-gray-200"></div>
+  <div id={scannerId} bind:this={scannerEl} class="mt-2 rounded-lg overflow-hidden border border-gray-200"></div>
+{/if}
+
+{#if cameraError}
+  <div class="mt-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+    {cameraError}
+  </div>
 {/if}
