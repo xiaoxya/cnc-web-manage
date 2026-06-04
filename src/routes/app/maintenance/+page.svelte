@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  export let data: { currentYear: number };
+  export let data: { currentYear: number; currentMonth: number };
   import ScanInput from "$lib/components/ScanInput.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
@@ -16,6 +16,7 @@
   let statusFilter = "";
   let search = "";
   const yearOptions = Array.from({ length: 6 }, (_, i) => data.currentYear - i);
+  let monthOptions = Array.from({ length: data.currentMonth }, (_, i) => String(i + 1).padStart(2, "0"));
 
   // New maintenance modal
   let showNewModal = false;
@@ -118,6 +119,16 @@
   const toolStatusMap: Record<string, string> = { IN_STOCK: '在库', IN_USE: '使用中', MAINTENANCE: '维修中', SCRAPPED: '已报废' };
   const statusColors: Record<string, string> = { IN_MAINTENANCE: "bg-yellow-100 text-yellow-800", COMPLETED: "bg-green-100 text-green-800" };
 
+  $: {
+    const selectedYear = Number(statsYear);
+    const maxMonth = selectedYear === data.currentYear ? data.currentMonth : 12;
+    monthOptions = Array.from({ length: maxMonth }, (_, i) => String(i + 1).padStart(2, "0"));
+    if (statsMonth && Number(statsMonth) > maxMonth) {
+      statsMonth = "";
+      loadStats();
+    }
+  }
+
   function fmt(d: string) { return new Date(d).toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); }
 </script>
 
@@ -219,8 +230,7 @@
           <label class="label">月份</label>
           <select class="input" bind:value={statsMonth} on:change={loadStats}>
             <option value="">全部</option>
-            {#each Array(12) as _, i}
-              {@const m = String(i + 1).padStart(2, "0")}
+            {#each monthOptions as m}
               <option value={m}>{m}月</option>
             {/each}
           </select>
