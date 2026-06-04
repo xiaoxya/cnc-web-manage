@@ -14,6 +14,8 @@
   let loading = true;
   let statusFilter = "";
   let search = "";
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear + 1 - i);
 
   // New maintenance modal
   let showNewModal = false;
@@ -208,8 +210,7 @@
         <div>
           <label class="label">年份</label>
           <select class="input" bind:value={statsYear} on:change={loadStats}>
-            {#each Array(5) as _, i}
-              {@const y = new Date().getFullYear() - i}
+            {#each yearOptions as y}
               <option value={y}>{y}年</option>
             {/each}
           </select>

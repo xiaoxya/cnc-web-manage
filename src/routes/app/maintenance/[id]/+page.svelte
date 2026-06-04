@@ -10,6 +10,7 @@
   let completeForm = { cost: null as number | null, notes: "", repairVendor: "" };
   let vendors: any[] = [];
   let completeLoading = false;
+  let completeError = "";
 
   $: id = $page.params.id;
 
@@ -27,6 +28,7 @@
 
   async function completeMaintenance() {
     completeLoading = true;
+    completeError = "";
     const res = await fetch(`/api/maintenance/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -36,6 +38,8 @@
     if (data.success) {
       showCompleteModal = false;
       goto("/app/maintenance");
+    } else {
+      completeError = data.message || "操作失败";
     }
     completeLoading = false;
   }
@@ -99,7 +103,10 @@
     </div>
   {/if}
 
-  <Modal title="维修完成" bind:show={showCompleteModal} confirmText="确认完成" on:confirm={completeMaintenance} {completeLoading} on:close={() => showCompleteModal = false}>
+  <Modal title="维修完成" bind:show={showCompleteModal} confirmText="确认完成" on:confirm={completeMaintenance} loading={completeLoading} on:close={() => { showCompleteModal = false; completeError = ""; }}>
+    {#if completeError}
+      <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-3">{completeError}</div>
+    {/if}
     <div class="space-y-3">
       <div>
         <label class="label">维修费用</label>
@@ -115,7 +122,7 @@
         </select>
         <input class="input mt-2" bind:value={completeForm.repairVendor} placeholder="或手动输入厂家名称" />
       </div>
-    <div>
+      <div>
         <label class="label">备注</label>
         <textarea class="input" rows="3" bind:value={completeForm.notes} placeholder="维修结果说明"></textarea>
       </div>
