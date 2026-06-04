@@ -67,9 +67,19 @@ export const maintenanceSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+const optionalTextField = z.preprocess((value) => {
+  if (value === "" || value === null || value === undefined) return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed === "" ? null : trimmed;
+  }
+  return String(value).trim() || null;
+}, z.string().nullable().optional());
+
 export const maintenanceCompleteSchema = z.object({
-  cost: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
+  cost: optionalTextField,
+  notes: optionalTextField,
+  repairVendor: optionalTextField,
 });
 
 export const stocktakingSchema = z.object({

@@ -1,5 +1,8 @@
 import { getTokenFromCookies, verifyToken } from "$lib/server/auth";
 import { prisma } from "$lib/server/db";
+import { validateBody, apiError } from "$lib/server/validation";
+import { maintenanceCompleteSchema } from "$lib/schemas";
+import { Prisma } from "@prisma/client";
 import { json } from "@sveltejs/kit";
 import type { RequestHandler } from "./$types";
 
@@ -23,6 +26,9 @@ export const PUT: RequestHandler = async ({ request, params }) => {
     const payload = verifyToken(token);
     const id = parseInt(params.id ?? "0");
     const body = await request.json();
+    const parsed = validateBody(maintenanceCompleteSchema, body);
+    if (!parsed.success) return apiError(parsed.error, 400);
+    const { cost, notes, repairVendor } = parsed.data;
 
     const record = await prisma.$transaction(async (tx) => {
       const maintRecord = await tx.maintenanceRecord.findUnique({ where: { id } });
@@ -31,22 +37,25 @@ export const PUT: RequestHandler = async ({ request, params }) => {
       const tool = await tx.tool.findUnique({ where: { id: maintRecord.toolId } });
       if (!tool) throw new Error("Tool not found");
 
+      const restoredStatus = maintRecord.previousStatus === "IN_USE" ? "IN_USE" : "IN_STOCK";
+      const restoredQuantity = tool.quantity > 0 ? tool.quantity : 1;
+
       const updated = await tx.maintenanceRecord.update({
         where: { id },
         data: {
           status: "COMPLETED",
           completedAt: new Date(),
-          cost: body.cost ? String(body.cost) : null,
-          notes: body.notes || null,
-          repairVendor: body.repairVendor || null,
+          cost,
+          notes,
+          repairVendor,
         },
       });
 
       await tx.tool.update({
         where: { id: maintRecord.toolId },
         data: {
-          status: "IN_STOCK",
-          quantity: tool.quantity === 0 ? 1 : tool.quantity,
+          status: restoredStatus,
+          quantity: restoredQuantity,
         },
       });
       return updated;
@@ -54,7 +63,10 @@ export const PUT: RequestHandler = async ({ request, params }) => {
 
     return json({ success: true, record });
   } catch (e) {
-    console.error(e);
-    return json({ success: false, message: "operation failed" }, { status: 500 });
+    console.error("Complete maintenance error:", e);
+    if (e instanceof Prisma.PrismaClientKnownRequestError) {
+      return json({ success: false, message: e.message }, { status: 500 });
+    }
+    return json({ success: false, message: e instanceof Error ? e.message : "operation failed" }, { status: 500 });
   }
 };
