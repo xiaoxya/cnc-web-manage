@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  export let data: { currentYear: number };
   import ScanInput from "$lib/components/ScanInput.svelte";
   import EmptyState from "$lib/components/ui/EmptyState.svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
@@ -9,13 +10,12 @@
   let stats: any = { vendorStats: [], monthStats: [], topTools: [], totalRecords: 0, totalCost: 0, inMaintenance: 0 };
   let statsLoading = false;
   let statsVendor = "";
-  let statsYear = new Date().getFullYear().toString();
+  let statsYear = data.currentYear.toString();
   let statsMonth = "";
   let loading = true;
   let statusFilter = "";
   let search = "";
-  const currentYear = new Date().getFullYear();
-  const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear + 1 - i);
+  const yearOptions = Array.from({ length: 6 }, (_, i) => data.currentYear - i);
 
   // New maintenance modal
   let showNewModal = false;
