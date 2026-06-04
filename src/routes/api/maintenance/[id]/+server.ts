@@ -37,8 +37,9 @@ export const PUT: RequestHandler = async ({ request, params }) => {
       const tool = await tx.tool.findUnique({ where: { id: maintRecord.toolId } });
       if (!tool) throw new Error("Tool not found");
 
-      const restoredStatus = maintRecord.previousStatus === "IN_USE" ? "IN_USE" : "IN_STOCK";
-      const restoredQuantity = tool.quantity > 0 ? tool.quantity : 1;
+      const wasInUse = maintRecord.previousStatus === "IN_USE";
+      const restoredStatus = wasInUse ? "IN_USE" : "IN_STOCK";
+      const restoredQuantity = wasInUse ? tool.quantity : (tool.quantity > 0 ? tool.quantity : 1);
 
       const updated = await tx.maintenanceRecord.update({
         where: { id },
