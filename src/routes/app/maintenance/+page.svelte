@@ -274,7 +274,7 @@
 
       <!-- By vendor -->
       <div class="card">
-        <h3 class="text-lg font-semibold mb-4">按维修厂家统计</h3>
+        <h3 class="text-lg font-semibold mb-4">按维修厂家和刀具编码统计</h3>
         {#if stats.vendorStats.length === 0}
           <p class="text-gray-400 text-sm">暂无数据</p>
         {:else}
@@ -283,6 +283,8 @@
               <thead class="bg-gray-50">
                 <tr>
                   <th class="table-header">维修厂家</th>
+                  <th class="table-header">刀具编码</th>
+                  <th class="table-header">刀具名称</th>
                   <th class="table-header">维修次数</th>
                   <th class="table-header">维修费用</th>
                 </tr>
@@ -291,6 +293,8 @@
                 {#each stats.vendorStats as vs}
                   <tr>
                     <td class="table-cell font-medium">{vs.vendor || "未指定"}</td>
+                    <td class="table-cell font-mono text-blue-600">{vs.toolCode || "—"}</td>
+                    <td class="table-cell">{vs.toolName || "—"}</td>
                     <td class="table-cell">{vs.count} 次</td>
                     <td class="table-cell">¥{vs.cost.toFixed(2)}</td>
                   </tr>

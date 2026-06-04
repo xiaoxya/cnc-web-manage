@@ -28,20 +28,36 @@ export const GET: RequestHandler = async ({ request, url }) => {
     // Get all records for stats to avoid groupBy limitations on Date/String fields
     const allRecords = await prisma.maintenanceRecord.findMany({
       where,
-      select: { id: true, repairVendor: true, cost: true, status: true, createdAt: true },
+      select: {
+        id: true,
+        repairVendor: true,
+        cost: true,
+        status: true,
+        createdAt: true,
+        tool: { select: { toolCode: true, name: true } },
+      },
     });
 
-    // Vendor stats
-    const vendorMap: Record<string, { count: number; cost: number }> = {};
+    // Vendor + tool stats
+    const vendorToolMap: Record<string, { vendor: string; toolCode: string; toolName: string; count: number; cost: number }> = {};
     for (const r of allRecords) {
-      const v = r.repairVendor || "未指定";
-      if (!vendorMap[v]) vendorMap[v] = { count: 0, cost: 0 };
-      vendorMap[v].count++;
-      vendorMap[v].cost += Number(r.cost) || 0;
+      const vendorName = r.repairVendor || "未指定";
+      const toolCode = r.tool?.toolCode || "—";
+      const key = `${vendorName}__${toolCode}`;
+      if (!vendorToolMap[key]) {
+        vendorToolMap[key] = {
+          vendor: vendorName,
+          toolCode,
+          toolName: r.tool?.name || "—",
+          count: 0,
+          cost: 0,
+        };
+      }
+      vendorToolMap[key].count++;
+      vendorToolMap[key].cost += Number(r.cost) || 0;
     }
-    const vendorStats = Object.entries(vendorMap)
-      .map(([vendor, data]) => ({ vendor, count: data.count, cost: data.cost }))
-      .sort((a, b) => b.count - a.count);
+    const vendorStats = Object.values(vendorToolMap)
+      .sort((a, b) => b.count - a.count || a.vendor.localeCompare(b.vendor) || a.toolCode.localeCompare(b.toolCode));
 
     // Month stats (last 12 months)
     const twelveMonthsAgo = new Date();
@@ -67,7 +83,7 @@ export const GET: RequestHandler = async ({ request, url }) => {
     });
 
     const totalRecords = allRecords.length;
-    const totalCost = Object.values(vendorMap).reduce((sum, v) => sum + v.cost, 0);
+    const totalCost = allRecords.reduce((sum, r) => sum + (Number(r.cost) || 0), 0);
     const inMaintenance = allRecords.filter(r => r.status === "IN_MAINTENANCE").length;
 
     return json({ vendorStats, monthStats, topTools, totalRecords, totalCost, inMaintenance });
