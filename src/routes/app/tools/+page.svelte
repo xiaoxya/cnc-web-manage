@@ -33,6 +33,12 @@
   let showReturnModal = false;
   let returnLoading = false;
   let returnError = "";
+  let showOutModal = false;
+  let outTarget: any = null;
+  let outFactoryId = "";
+  let outNotes = "";
+  let outLoading = false;
+  let outError = "";
 
   const statusOptions = [
     { value: "", label: "全部" },
@@ -165,6 +171,43 @@
     returnLoading = false;
   }
 
+  async function outboundTool() {
+    if (!outTarget) return;
+    if (!outFactoryId) {
+      outError = "请选择目标工厂";
+      return;
+    }
+    outLoading = true;
+    outError = "";
+    try {
+      const res = await fetch("/api/tools/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "OUT",
+          factoryId: Number(outFactoryId),
+          items: [{ toolId: outTarget.id, quantity: 1, notes: outNotes || null }],
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showOutModal = false;
+        outTarget = null;
+        outFactoryId = "";
+        outNotes = "";
+        loadTools();
+        if (activeTab === "inuse") loadInUse();
+        success = "出库成功";
+        setTimeout(() => success = "", 2000);
+      } else {
+        outError = data.message || "操作失败";
+      }
+    } catch {
+      outError = "网络错误";
+    }
+    outLoading = false;
+  }
+
   const statusMap: Record<string, string> = {
     IN_STOCK: "在库", IN_USE: "使用中", MAINTENANCE: "维修中", SCRAPPED: "已报废"
   };
@@ -272,6 +315,7 @@
               <td class="table-cell">
                 <a href="/app/tools/{tool.id}" class="text-blue-600 hover:text-blue-800 text-sm">详情</a>
                 {#if tool.status !== "SCRAPPED" && currentUserRole === "ADMIN"}
+                  <button class="text-green-600 hover:text-green-800 text-sm ml-2" on:click={() => { outTarget = tool; showOutModal = true; }}>出库</button>
                   <button class="text-red-600 hover:text-red-800 text-sm ml-2" on:click={() => { scrapTarget = tool; showScrapModal = true; }}>报废</button>
                 {/if}
               </td>
@@ -385,6 +429,30 @@
     <p class="mt-2 font-semibold">{returnTarget.toolCode} - {returnTarget.name}</p>
     <p class="text-sm text-gray-500 mt-1">当前所在工厂：{returnTarget.factoryName}</p>
     <p class="text-sm text-gray-500">回收后将自动增加库存并恢复为“在库”状态</p>
+  {/if}
+</Modal>
+
+<Modal title="单把刀具出库" bind:show={showOutModal} confirmText="确认出库" variant="primary" loading={outLoading} on:confirm={outboundTool} on:close={() => { showOutModal = false; outTarget = null; outFactoryId = ""; outNotes = ""; outError = ""; }}>
+  {#if outError}
+    <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-3">{outError}</div>
+  {/if}
+  {#if outTarget}
+    <p>确定将以下刀具出库到指定工厂？</p>
+    <p class="mt-2 font-semibold">{outTarget.toolCode} - {outTarget.name}</p>
+    <div class="mt-4">
+      <label class="label">目标工厂 <span class="text-red-500">*</span></label>
+      <select class="input" bind:value={outFactoryId}>
+        <option value="">请选择工厂</option>
+        {#each factorySummary as f}
+          <option value={f.factoryId}>{f.factoryCode} - {f.factoryName}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="mt-4">
+      <label class="label">备注</label>
+      <input class="input" bind:value={outNotes} placeholder="可选" />
+    </div>
+    <p class="text-sm text-gray-500 mt-2">出库后该刀具会进入“使用中”状态，数量记为 1 把。</p>
   {/if}
 </Modal>
 
