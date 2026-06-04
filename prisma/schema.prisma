@@ -146,7 +146,7 @@ model MaintenanceRecord {
   toolId       Int
   status       String   @default("IN_MAINTENANCE")
   description  String
-  cost         String?
+  cost         Decimal? @db.Decimal(10, 2)
   repairVendor String?
   reporterId   Int
   completedAt  DateTime?
