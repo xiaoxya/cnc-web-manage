@@ -93,6 +93,7 @@
   function switchTab(tab: string) {
     activeTab = tab;
     if (tab === "inuse") loadInUse();
+    if (tab === "all") loadTools();
   }
 
   async function loadTools() {
@@ -163,7 +164,7 @@
         showReturnModal = false; returnTarget = null;
         // 刷新两个标签页数据
         loadInUse();
-        if (activeTab === "all") loadTools();
+        loadTools();
         // 显示短暂成功提示
         success = "回收成功，刀具已归库";
         setTimeout(() => success = "", 2000);

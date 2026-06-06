@@ -24,8 +24,8 @@ export const POST: RequestHandler = async ({ request }) => {
       return apiError("该刀具不在使用中", 400);
     }
 
-    // Restore quantity to at least minQuantity when returning
-    const restoredQty = tool.quantity > 0 ? tool.quantity : Math.max(1, tool.minQuantity);
+    // Tools are tracked with independent codes, so returning one in-use tool restores one stock unit.
+    const restoredQty = 1;
 
     await prisma.$transaction(async (tx) => {
       await tx.tool.update({
