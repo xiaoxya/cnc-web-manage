@@ -17,9 +17,8 @@
   let scannerId = `camera-scanner-${Math.random().toString(36).slice(2)}`;
   let cameraError = "";
 
-  function handleInput(e: Event) {
-    const target = e.target as HTMLInputElement;
-    value = target.value;
+  function handleInput() {
+    value = inputEl?.value ?? value;
     dispatch("input", value);
   }
 
@@ -29,11 +28,16 @@
         clearTimeout(inputTimer);
         inputTimer = null;
       }
-      setTimeout(() => {
-        dispatch("scan", value);
-        dispatch("submit", value);
-      }, 10);
+      setTimeout(submitCurrentValue, 10);
     }
+  }
+
+  async function submitCurrentValue() {
+    await tick();
+    value = inputEl?.value ?? value;
+    dispatch("input", value);
+    dispatch("scan", value);
+    dispatch("submit", value);
   }
 
   async function startCamera() {
@@ -150,7 +154,7 @@
     {placeholder}
     {disabled}
     class="input pl-10 pr-10"
-    value={value}
+    bind:value
     on:input={handleInput}
     on:keydown={handleKeydown}
   />
