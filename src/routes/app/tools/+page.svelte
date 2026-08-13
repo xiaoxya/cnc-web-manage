@@ -40,6 +40,8 @@
   let outNotes = "";
   let outLoading = false;
   let outError = "";
+  let exportLoading = false;
+  let exportError = "";
 
   const statusOptions = [
     { value: "", label: "全部" },
@@ -135,6 +137,38 @@
   }
 
   function applyFilter() { page = 1; loadTools(); }
+
+  async function exportLedger() {
+    exportLoading = true;
+    exportError = "";
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set("search", search);
+      if (categoryId) params.set("categoryId", categoryId);
+      if (locationId) params.set("locationId", locationId);
+      if (status) params.set("status", status);
+
+      const response = await fetch(`/api/tools/export?${params}`);
+      if (!response.ok) {
+        exportError = (await response.text()) || "导出刀具台账失败";
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `刀具台账_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      exportError = "网络错误，导出刀具台账失败";
+    } finally {
+      exportLoading = false;
+    }
+  }
 
   async function scrapTool() {
     if (!scrapTarget) return;
@@ -238,14 +272,21 @@
 
 <div class="flex items-center justify-between mb-6">
   <h2 class="text-2xl font-bold">刀具列表</h2>
-  {#if currentUserRole === "ADMIN"}
   <div class="flex gap-2">
+    <button class="btn-secondary" on:click={exportLedger} disabled={exportLoading}>
+      {exportLoading ? "导出中..." : "📊 导出刀具台账"}
+    </button>
+    {#if currentUserRole === "ADMIN"}
     <a href="/app/tools/new" class="btn-primary">➕ 新增刀具</a>
     <a href="/app/tools/batch-in" class="btn-success btn-sm">批量入库</a>
     <a href="/app/tools/batch-out" class="btn-primary">➖批量出库</a>
+    {/if}
   </div>
-  {/if}
 </div>
+
+{#if exportError}
+  <div class="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg mb-4">{exportError}</div>
+{/if}
 
 <!-- Tab bar -->
 <div class="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
